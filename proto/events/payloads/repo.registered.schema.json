@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RepoRegisteredPayload",
+  "description": "A repository was registered (or a reindex was requested). Consumed by the indexer.",
+  "type": "object",
+  "required": ["repo_id", "full_name", "clone_url", "default_branch"],
+  "properties": {
+    "repo_id": { "type": "string", "format": "uuid" },
+    "full_name": { "type": "string", "description": "owner/name" },
+    "clone_url": { "type": "string" },
+    "default_branch": { "type": "string" },
+    "commit_sha": {
+      "type": ["string", "null"],
+      "description": "Commit to index. Null means the head of default_branch."
+    }
+  }
+}

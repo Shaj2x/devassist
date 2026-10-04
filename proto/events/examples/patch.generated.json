@@ -1,0 +1,18 @@
+{
+  "event_id": "c56a4180-65aa-42ec-a945-5fd21dec0538",
+  "type": "patch.generated",
+  "version": 1,
+  "timestamp": "2026-10-03T12:06:10Z",
+  "source": "orchestrator",
+  "trace_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+  "payload": {
+    "job_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+    "patch_id": "e4eaaaf2-d142-11e1-b3e4-080027620cdd",
+    "iteration": 1,
+    "repo_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "clone_url": "https://github.com/devassist/sample-python.git",
+    "commit_sha": "3f786850e387550fdab836ed7e6dc881de23001b",
+    "diff": "--- a/utils/date.py\n+++ b/utils/date.py\n@@ -1,2 +1,2 @@\n def is_leap(y):\n-    return y % 4 == 0\n+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)\n",
+    "config": { "language": "python", "install_command": null, "test_command": null, "timeout_seconds": 300 }
+  }
+}

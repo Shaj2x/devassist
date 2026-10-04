@@ -1,0 +1,52 @@
+# uv workspace root: one lockfile for every Python package in the monorepo.
+[project]
+name = "devassist-workspace"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["libs/devassist-common", "services/api", "services/orchestrator"]
+
+[tool.uv.sources]
+devassist-common = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "jsonschema>=4.23",
+    "types-jsonschema>=4.23",
+    "httpx>=0.27",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.ruff.lint.per-file-ignores]
+"**/alembic/versions/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["alembic/versions/"]
+
+[[tool.mypy.overrides]]
+module = ["aiokafka.*", "pgvector.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs the docker-compose stack running (make up)"]
+addopts = "-m 'not integration' --import-mode=importlib"

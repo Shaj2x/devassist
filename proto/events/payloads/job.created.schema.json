@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JobCreatedPayload",
+  "description": "A user submitted a change request. Consumed by the orchestrator.",
+  "type": "object",
+  "required": ["job_id", "repo_id", "task", "max_iterations"],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "repo_id": { "type": "string", "format": "uuid" },
+    "task": { "type": "string", "minLength": 1 },
+    "base_commit_sha": { "type": ["string", "null"] },
+    "max_iterations": { "type": "integer", "minimum": 1, "maximum": 10 }
+  }
+}

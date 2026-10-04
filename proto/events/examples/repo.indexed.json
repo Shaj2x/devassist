@@ -1,0 +1,17 @@
+{
+  "event_id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  "type": "repo.indexed",
+  "version": 1,
+  "timestamp": "2026-10-03T12:01:30Z",
+  "source": "indexer",
+  "trace_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "payload": {
+    "repo_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "snapshot_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "commit_sha": "3f786850e387550fdab836ed7e6dc881de23001b",
+    "status": "ready",
+    "file_count": 12,
+    "chunk_count": 87,
+    "error": null
+  }
+}

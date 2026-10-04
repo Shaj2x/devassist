@@ -1,0 +1,33 @@
+# Secrets
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Go
+/services/*/bin/
+*.test
+coverage.out
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Runtime data
+/tmp/
+/.data/

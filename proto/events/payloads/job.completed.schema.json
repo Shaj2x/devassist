@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JobCompletedPayload",
+  "description": "The orchestrator finished a job: it either has a patch ready for human review or gave up.",
+  "type": "object",
+  "required": ["job_id", "status", "iterations"],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "status": { "type": "string", "enum": ["awaiting_review", "failed", "cancelled"] },
+    "final_patch_id": { "type": ["string", "null"], "format": "uuid" },
+    "iterations": { "type": "integer", "minimum": 0 },
+    "error": { "type": ["string", "null"] }
+  }
+}

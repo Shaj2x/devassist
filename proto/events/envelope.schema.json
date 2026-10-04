@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devassist.dev/schemas/events/envelope.schema.json",
+  "title": "EventEnvelope",
+  "description": "Every message on every DevAssist Kafka topic is wrapped in this envelope. The payload shape is determined by `type`; see payloads/<type>.schema.json.",
+  "type": "object",
+  "required": ["event_id", "type", "version", "timestamp", "source", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id for this event. Consumers use it for idempotency (processed_events table)."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "repo.registered",
+        "repo.indexed",
+        "job.created",
+        "patch.generated",
+        "validation.completed",
+        "job.completed"
+      ],
+      "description": "Event type. Equal to the Kafka topic the event is published on."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Payload schema version. Bump on breaking payload changes."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event was produced (RFC 3339, UTC)."
+    },
+    "source": {
+      "type": "string",
+      "description": "Name of the producing service, e.g. api, orchestrator, indexer, sandbox-runner."
+    },
+    "trace_id": {
+      "type": ["string", "null"],
+      "description": "Correlation id carried through every service and log line. For job events this is the job id; for repo events the repository id."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type-specific body."
+    }
+  }
+}

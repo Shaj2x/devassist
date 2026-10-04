@@ -1,0 +1,26 @@
+{
+  "event_id": "4a5b6c7d-8e9f-4a0b-9c1d-2e3f4a5b6c7d",
+  "type": "validation.completed",
+  "version": 1,
+  "timestamp": "2026-10-03T12:07:45Z",
+  "source": "sandbox-runner",
+  "trace_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+  "payload": {
+    "job_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+    "patch_id": "e4eaaaf2-d142-11e1-b3e4-080027620cdd",
+    "iteration": 1,
+    "status": "passed",
+    "tests": { "status": "passed", "tool": "pytest", "passed": 14, "failed": 0, "skipped": 1, "findings": [], "duration_ms": 2310 },
+    "security": { "status": "passed", "tool": "bandit", "findings": [], "duration_ms": 900 },
+    "static_analysis": {
+      "status": "passed",
+      "tool": "ruff",
+      "findings": [
+        { "tool": "ruff", "rule_id": "E501", "severity": "low", "file": "utils/date.py", "line": 3, "message": "Line too long (101 > 100)" }
+      ],
+      "duration_ms": 120
+    },
+    "duration_ms": 41200,
+    "error": null
+  }
+}

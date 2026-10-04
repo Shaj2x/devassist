@@ -1,0 +1,15 @@
+{
+  "event_id": "9b2c7c4e-3f0a-4b8a-9d55-2f1c3e8a7b61",
+  "type": "job.created",
+  "version": 1,
+  "timestamp": "2026-10-03T12:05:00Z",
+  "source": "api",
+  "trace_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+  "payload": {
+    "job_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+    "repo_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "task": "Fix the failing test in utils/date.py",
+    "base_commit_sha": "3f786850e387550fdab836ed7e6dc881de23001b",
+    "max_iterations": 3
+  }
+}

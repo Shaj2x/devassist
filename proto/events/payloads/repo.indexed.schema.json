@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RepoIndexedPayload",
+  "description": "The indexer finished (or failed) indexing a repository snapshot.",
+  "type": "object",
+  "required": ["repo_id", "snapshot_id", "commit_sha", "status"],
+  "properties": {
+    "repo_id": { "type": "string", "format": "uuid" },
+    "snapshot_id": { "type": "string", "format": "uuid" },
+    "commit_sha": { "type": "string" },
+    "status": { "type": "string", "enum": ["ready", "failed"] },
+    "file_count": { "type": "integer", "minimum": 0 },
+    "chunk_count": { "type": "integer", "minimum": 0 },
+    "error": { "type": ["string", "null"] }
+  }
+}

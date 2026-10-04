@@ -1,0 +1,15 @@
+{
+  "event_id": "5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6",
+  "type": "job.completed",
+  "version": 1,
+  "timestamp": "2026-10-03T12:08:00Z",
+  "source": "orchestrator",
+  "trace_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+  "payload": {
+    "job_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+    "status": "awaiting_review",
+    "final_patch_id": "e4eaaaf2-d142-11e1-b3e4-080027620cdd",
+    "iterations": 1,
+    "error": null
+  }
+}

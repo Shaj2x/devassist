@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatchGeneratedPayload",
+  "description": "The orchestrator produced a candidate patch. Consumed by the sandbox runner. The diff travels inline so the runner needs no database access.",
+  "type": "object",
+  "required": ["job_id", "patch_id", "iteration", "repo_id", "clone_url", "commit_sha", "diff"],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "patch_id": { "type": "string", "format": "uuid" },
+    "iteration": { "type": "integer", "minimum": 1 },
+    "repo_id": { "type": "string", "format": "uuid" },
+    "clone_url": { "type": "string" },
+    "commit_sha": { "type": "string" },
+    "diff": { "type": "string", "description": "Unified diff, applicable with `git apply`." },
+    "config": {
+      "type": "object",
+      "description": "Optional per-repo validation overrides.",
+      "properties": {
+        "language": { "type": ["string", "null"] },
+        "install_command": { "type": ["string", "null"] },
+        "test_command": { "type": ["string", "null"] },
+        "timeout_seconds": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    }
+  }
+}

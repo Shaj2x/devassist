@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ValidationCompletedPayload",
+  "description": "The sandbox runner finished validating a patch.",
+  "type": "object",
+  "required": ["job_id", "patch_id", "iteration", "status", "tests", "security", "static_analysis"],
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "skipped", "error"] },
+        "tool": { "type": ["string", "null"] },
+        "summary": { "type": ["string", "null"] },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["message"],
+            "properties": {
+              "tool": { "type": ["string", "null"] },
+              "rule_id": { "type": ["string", "null"] },
+              "severity": { "type": ["string", "null"] },
+              "file": { "type": ["string", "null"] },
+              "line": { "type": ["integer", "null"] },
+              "message": { "type": "string" }
+            }
+          }
+        },
+        "log": { "type": ["string", "null"], "description": "Truncated tool output." },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "patch_id": { "type": "string", "format": "uuid" },
+    "iteration": { "type": "integer", "minimum": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed", "error", "timeout"],
+      "description": "passed only if every check passed or was skipped."
+    },
+    "tests": { "$ref": "#/$defs/check" },
+    "security": { "$ref": "#/$defs/check" },
+    "static_analysis": { "$ref": "#/$defs/check" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "error": { "type": ["string", "null"] }
+  }
+}

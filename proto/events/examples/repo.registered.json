@@ -1,0 +1,15 @@
+{
+  "event_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "type": "repo.registered",
+  "version": 1,
+  "timestamp": "2026-10-03T12:00:00Z",
+  "source": "api",
+  "trace_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "payload": {
+    "repo_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "full_name": "devassist/sample-python",
+    "clone_url": "https://github.com/devassist/sample-python.git",
+    "default_branch": "main",
+    "commit_sha": null
+  }
+}

@@ -1,0 +1,18 @@
+[project]
+name = "devassist-api"
+version = "0.1.0"
+description = "DevAssist REST API (FastAPI)."
+requires-python = ">=3.11"
+dependencies = [
+    "devassist-common",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "alembic>=1.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/devassist_api"]

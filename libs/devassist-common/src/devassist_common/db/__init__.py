@@ -1,0 +1,47 @@
+"""SQLAlchemy models and session helpers shared by api and orchestrator."""
+
+from devassist_common.db.base import Base
+from devassist_common.db.models import (
+    EMBEDDING_DIMENSIONS,
+    AgentName,
+    AgentStep,
+    AgentStepStatus,
+    CheckStatus,
+    CodeChunk,
+    Job,
+    JobStatus,
+    Patch,
+    PatchStatus,
+    ProcessedEvent,
+    PullRequest,
+    PullRequestState,
+    Repository,
+    RepoSnapshot,
+    SnapshotStatus,
+    User,
+    ValidationRun,
+    ValidationStatus,
+)
+
+__all__ = [
+    "EMBEDDING_DIMENSIONS",
+    "AgentName",
+    "AgentStep",
+    "AgentStepStatus",
+    "Base",
+    "CheckStatus",
+    "CodeChunk",
+    "Job",
+    "JobStatus",
+    "Patch",
+    "PatchStatus",
+    "ProcessedEvent",
+    "PullRequest",
+    "PullRequestState",
+    "RepoSnapshot",
+    "Repository",
+    "SnapshotStatus",
+    "User",
+    "ValidationRun",
+    "ValidationStatus",
+]
