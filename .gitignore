@@ -31,3 +31,6 @@ dist/
 # Runtime data
 /tmp/
 /.data/
+
+# Local CA certificates for building behind a TLS-inspecting proxy
+deploy/certs/*.crt

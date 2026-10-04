@@ -1,0 +1,7 @@
+go 1.24
+
+use (
+	./libs/gocommon
+	./services/indexer
+	./services/sandbox-runner
+)

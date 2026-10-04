@@ -1,0 +1,91 @@
+# DevAssist
+
+DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
+
+> **Status:** Phase 1 of 7 (foundation) is complete. See [Roadmap](#roadmap).
+
+## Architecture
+
+Python (FastAPI) for the API and agent orchestration, Go for the
+performance-sensitive indexer and sandbox runner, Postgres + pgvector for data
+and embeddings, Redis for caching and locks, and Kafka as the event bus.
+Details: [docs/architecture.md](docs/architecture.md).
+
+```mermaid
+flowchart LR
+    UI[Dashboard] --> API[api · FastAPI]
+    API <--> K[(Kafka)]
+    K <--> IDX[indexer · Go]
+    K <--> ORC[orchestrator · agents]
+    K <--> SBX[sandbox-runner · Go]
+    ORC --> IDX
+    API & ORC & IDX --> PG[(Postgres + pgvector)]
+    API & ORC & IDX & SBX --> R[(Redis)]
+```
+
+## Quickstart
+
+Requirements: Docker with Compose v2, and `make`.
+
+```bash
+git clone https://github.com/Shaj2x/devassist.git
+cd devassist
+make up      # builds every image, starts the stack, waits until all services are healthy
+make smoke   # hits every service's /readyz
+```
+
+| URL                              | What                           |
+| -------------------------------- | ------------------------------ |
+| http://localhost:3000            | Dashboard                      |
+| http://localhost:8000/docs       | API (OpenAPI / Swagger UI)     |
+| http://localhost:8001/readyz     | Orchestrator readiness         |
+| http://localhost:8080/readyz     | Indexer readiness              |
+| http://localhost:8081/readyz     | Sandbox runner readiness       |
+
+`make up` creates `.env` from [`.env.example`](.env.example) on first run. No
+API keys are needed for the foundation; the LLM and embedding providers
+default to offline mocks.
+
+Building behind a TLS-inspecting corporate proxy? See
+[deploy/certs/README.md](deploy/certs/README.md).
+
+## Development
+
+For local tooling you need [uv](https://docs.astral.sh/uv/), Go 1.24+, Node 22+
+and golangci-lint v2.
+
+```bash
+make install           # uv sync, go mod download, npm ci
+make test              # unit tests: Python, Go, dashboard
+make lint              # ruff + mypy --strict, gofmt + go vet + golangci-lint, eslint + tsc
+make test-integration  # migration round-trip, schema drift, pgvector search (needs `make up`)
+make logs s=api        # follow one service's JSON logs
+make down              # stop (keeps data);  make clean  # stop and wipe volumes
+```
+
+## Repository layout
+
+```
+libs/devassist-common/  shared Python: config, JSON logging, events, DB models, health checks
+libs/gocommon/          shared Go: the same, for the Go services
+services/api/           FastAPI service + Alembic migrations (owns the schema)
+services/orchestrator/  multi-agent workflow (Phase 4)
+services/indexer/       Go: clone, chunk, embed, semantic search (Phase 2)
+services/sandbox-runner/ Go: isolated patch validation (Phase 3)
+dashboard/              React + TypeScript + Vite review UI
+proto/events/           JSON Schemas for every Kafka event + shared fixtures
+deploy/                 docker-compose, Kafka topic setup, k8s (Phase 7)
+docs/                   architecture and design notes
+```
+
+## Roadmap
+
+- [x] **Phase 1: Foundation.** Monorepo, docker-compose (Postgres/pgvector,
+  Redis, Kafka in KRaft mode), service skeletons with health checks, full
+  schema migration, event contracts, Makefile.
+- [ ] **Phase 2: Indexer.** Clone, tree-sitter chunking, embeddings, semantic search.
+- [ ] **Phase 3: Sandbox runner.** Hardened containers running tests, security scan, static analysis.
+- [ ] **Phase 4: Agents.** Planner, Coder, Tester, Debugger, Reviewer state machine.
+- [ ] **Phase 5: API + GitHub.** REST endpoints, Kafka wiring, PR creation.
+- [ ] **Phase 6: Dashboard.** Live job timeline, diff viewer, validation results, approve flow.
+- [ ] **Phase 7: Deployment + polish.** Kubernetes, CI, metrics, full docs.

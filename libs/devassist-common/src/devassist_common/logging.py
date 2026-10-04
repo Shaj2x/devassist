@@ -26,7 +26,13 @@ _trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 # Attributes every LogRecord has; anything else came from `extra=` and is
 # copied into the JSON output.
-_RESERVED = set(vars(logging.makeLogRecord({}))) | {"message", "asctime", "taskName"}
+# uvicorn adds `color_message` (the same text with ANSI codes), which we drop.
+_RESERVED = set(vars(logging.makeLogRecord({}))) | {
+    "message",
+    "asctime",
+    "taskName",
+    "color_message",
+}
 
 
 def get_trace_id() -> str | None:

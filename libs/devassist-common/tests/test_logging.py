@@ -25,6 +25,13 @@ def test_json_lines_carry_service_trace_id_and_extras(capsys: pytest.CaptureFixt
     assert "trace_id" not in second
 
 
+def test_ansi_duplicate_from_uvicorn_is_dropped(capsys: pytest.CaptureFixture[str]) -> None:
+    configure_logging("test-svc")
+    logging.getLogger("uvicorn.error").info("ready", extra={"color_message": "\x1b[36mready"})
+    entry = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert "color_message" not in entry
+
+
 def test_trace_context_restores_previous_value() -> None:
     with trace_context("outer"):
         with trace_context("inner"):

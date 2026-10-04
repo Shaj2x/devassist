@@ -1,0 +1,170 @@
+# Local development stack: infrastructure + every DevAssist service.
+# Run from the repo root with `make up` (wraps `docker compose ... up --wait`).
+
+name: devassist
+
+x-service-env: &service-env
+  DEVASSIST_ENV: ${DEVASSIST_ENV:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  # In-network addresses; .env holds the localhost equivalents for host tools.
+  DATABASE_URL: postgresql://${POSTGRES_USER:-devassist}:${POSTGRES_PASSWORD:-devassist}@postgres:5432/${POSTGRES_DB:-devassist}
+  REDIS_URL: redis://redis:6379/0
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  INDEXER_URL: http://indexer:8080
+
+x-depends-on-infra: &depends-on-infra
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  kafka-init:
+    condition: service_completed_successfully
+
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-devassist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devassist}
+      POSTGRES_DB: ${POSTGRES_DB:-devassist}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["${REDIS_PORT:-6379}:6379"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Single-node Kafka in KRaft mode: the broker is its own controller, so no
+  # ZooKeeper. Two listeners: kafka:9092 inside the network, localhost:29092
+  # for tools on your machine.
+  kafka:
+    image: apache/kafka:3.8.1
+    environment:
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw  # any base64 UUID; fixed so the volume stays valid
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Topics are created explicitly by kafka-init, never by accident.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports: ["29092:29092"]
+    volumes: [kafka-data:/var/lib/kafka/data]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  kafka-init:
+    image: apache/kafka:3.8.1
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes: [./kafka/create-topics.sh:/scripts/create-topics.sh:ro]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+
+  # One-shot: apply Alembic migrations before anything uses the database.
+  migrate:
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    image: devassist/api:dev
+    working_dir: /app/services/api
+    command: ["alembic", "upgrade", "head"]
+    environment: *service-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # DevAssist services
+  # ---------------------------------------------------------------------------
+  api:
+    build: { context: .., dockerfile: services/api/Dockerfile }
+    image: devassist/api:dev
+    environment:
+      <<: *service-env
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+    ports: ["${API_PORT:-8000}:8000"]
+    depends_on:
+      <<: *depends-on-infra
+      migrate:
+        condition: service_completed_successfully
+
+  orchestrator:
+    build: { context: .., dockerfile: services/orchestrator/Dockerfile }
+    image: devassist/orchestrator:dev
+    environment:
+      <<: *service-env
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL: ${LLM_MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports: ["${ORCHESTRATOR_PORT:-8001}:8001"]
+    depends_on:
+      <<: *depends-on-infra
+      migrate:
+        condition: service_completed_successfully
+
+  indexer:
+    build: { context: .., dockerfile: services/indexer/Dockerfile }
+    image: devassist/indexer:dev
+    environment:
+      <<: *service-env
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+    ports: ["${INDEXER_PORT:-8080}:8080"]
+    depends_on:
+      <<: *depends-on-infra
+      migrate:
+        condition: service_completed_successfully
+
+  sandbox-runner:
+    build: { context: .., dockerfile: services/sandbox-runner/Dockerfile }
+    image: devassist/sandbox-runner:dev
+    environment: *service-env
+    ports: ["${SANDBOX_RUNNER_PORT:-8081}:8081"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  dashboard:
+    build: { context: .., dockerfile: dashboard/Dockerfile }
+    image: devassist/dashboard:dev
+    ports: ["${DASHBOARD_PORT:-3000}:8080"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
