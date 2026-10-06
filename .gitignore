@@ -34,3 +34,7 @@ dist/
 
 # Local CA certificates for building behind a TLS-inspecting proxy
 deploy/certs/*.crt
+
+# Binaries from `go build` in a service directory
+/services/indexer/indexer
+/services/sandbox-runner/sandbox-runner

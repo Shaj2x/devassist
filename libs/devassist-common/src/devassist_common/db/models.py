@@ -165,6 +165,9 @@ class RepoSnapshot(UUIDPrimaryKey, Timestamps, Base):
     repo_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"))
     commit_sha: Mapped[str] = mapped_column(String(64))
     branch: Mapped[str | None] = mapped_column(String(255))
+    # e.g. "local-hash-v1" or "openai/text-embedding-3-small". Embeddings are
+    # only reused across snapshots that share a model.
+    embedding_model: Mapped[str | None] = mapped_column(String(100))
     status: Mapped[SnapshotStatus] = mapped_column(
         str_enum(SnapshotStatus, "snapshot_status"), default=SnapshotStatus.PENDING
     )

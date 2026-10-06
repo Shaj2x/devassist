@@ -1,0 +1,9 @@
+[project]
+name = "datekit"
+version = "0.1.0"
+description = "Small date helpers (DevAssist demo repository)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

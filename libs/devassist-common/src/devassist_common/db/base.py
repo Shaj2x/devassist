@@ -24,7 +24,11 @@ class Base(DeclarativeBase):
 
 
 class UUIDPrimaryKey:
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # Generated in Python for ORM inserts and by Postgres for raw inserts
+    # (the Go services insert rows without supplying an id).
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=func.gen_random_uuid()
+    )
 
 
 class Timestamps:

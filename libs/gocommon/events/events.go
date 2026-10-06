@@ -83,6 +83,11 @@ func Decode(data []byte) (Envelope, error) {
 	return e, nil
 }
 
+// Marshal encodes the envelope as JSON.
+func (e Envelope) Marshal() ([]byte, error) {
+	return json.Marshal(e)
+}
+
 // DecodePayload unmarshals the payload into out.
 func (e Envelope) DecodePayload(out any) error {
 	if err := json.Unmarshal(e.Payload, out); err != nil {

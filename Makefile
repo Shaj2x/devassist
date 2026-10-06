@@ -21,7 +21,7 @@ help: ## Show this help
 # ---------------------------------------------------------------------------
 
 .PHONY: up
-up: .env ## Build and start the whole stack, wait until every service is healthy
+up: .env sample-repos ## Build and start the whole stack, wait until every service is healthy
 	$(COMPOSE) up -d --build --wait
 	@$(MAKE) --no-print-directory ps
 
@@ -44,6 +44,23 @@ logs: ## Tail logs from every service (make logs s=api for one)
 .PHONY: migrate
 migrate: ## Apply database migrations to the running stack
 	$(COMPOSE) run --rm migrate
+
+.PHONY: sample-repos
+sample-repos: ## Publish sample-repos/* as local git remotes under .data/
+	@./scripts/publish-sample-repos.sh
+
+# ---------------------------------------------------------------------------
+# Demo
+# ---------------------------------------------------------------------------
+
+q ?= leap year check
+.PHONY: demo-index
+demo-index: ## Index the datekit sample repo (stack must be up)
+	$(COMPOSE) exec indexer indexer index -url file:///sample-repos/datekit.git -name demo/datekit
+
+.PHONY: demo-search
+demo-search: ## Search the datekit sample: make demo-search q="parse a duration"
+	$(COMPOSE) exec indexer indexer search -name demo/datekit -k 5 "$(q)"
 
 .PHONY: smoke
 smoke: ## Hit every service's readiness endpoint
@@ -85,6 +102,7 @@ test-dashboard:
 .PHONY: test-integration
 test-integration: .env ## Integration tests against the running stack (make up first)
 	uv run pytest -m integration
+	cd services/indexer && go test -tags integration -count=1 ./...
 
 .PHONY: lint
 lint: lint-python lint-go lint-dashboard ## Run every linter and type checker

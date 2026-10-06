@@ -2,7 +2,7 @@
 
 DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
 
-> **Status:** Phase 1 of 7 (foundation) is complete. See [Roadmap](#roadmap).
+> **Status:** Phases 1-2 of 7 complete (foundation, indexer). See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -46,6 +46,25 @@ make smoke   # hits every service's /readyz
 API keys are needed for the foundation; the LLM and embedding providers
 default to offline mocks.
 
+### Try the indexer
+
+`make up` also publishes the demo repos in `sample-repos/` as local git
+remotes. Index one and search it:
+
+```bash
+make demo-index                                  # clone, chunk, embed, store
+make demo-search q="parse a duration like 1h30m"
+```
+
+```
+1. datekit/parsing.py:20-27  [function parse_duration]  score=0.331
+     def parse_duration(text: str) -> timedelta:
+         """Parse compact durations like ``1h30m``, ``2d``, or ``45s``."""
+```
+
+How chunking, incremental reindexing and caching work:
+[docs/indexer.md](docs/indexer.md).
+
 Building behind a TLS-inspecting corporate proxy? See
 [deploy/certs/README.md](deploy/certs/README.md).
 
@@ -58,7 +77,7 @@ and golangci-lint v2.
 make install           # uv sync, go mod download, npm ci
 make test              # unit tests: Python, Go, dashboard
 make lint              # ruff + mypy --strict, gofmt + go vet + golangci-lint, eslint + tsc
-make test-integration  # migration round-trip, schema drift, pgvector search (needs `make up`)
+make test-integration  # migrations, schema drift, indexing pipeline on real Postgres/Redis (needs `make up`)
 make logs s=api        # follow one service's JSON logs
 make down              # stop (keeps data);  make clean  # stop and wipe volumes
 ```
@@ -70,10 +89,11 @@ libs/devassist-common/  shared Python: config, JSON logging, events, DB models, 
 libs/gocommon/          shared Go: the same, for the Go services
 services/api/           FastAPI service + Alembic migrations (owns the schema)
 services/orchestrator/  multi-agent workflow (Phase 4)
-services/indexer/       Go: clone, chunk, embed, semantic search (Phase 2)
+services/indexer/       Go: clone, chunk, embed, semantic search
 services/sandbox-runner/ Go: isolated patch validation (Phase 3)
 dashboard/              React + TypeScript + Vite review UI
 proto/events/           JSON Schemas for every Kafka event + shared fixtures
+sample-repos/           small demo repositories DevAssist works on
 deploy/                 docker-compose, Kafka topic setup, k8s (Phase 7)
 docs/                   architecture and design notes
 ```
@@ -83,7 +103,9 @@ docs/                   architecture and design notes
 - [x] **Phase 1: Foundation.** Monorepo, docker-compose (Postgres/pgvector,
   Redis, Kafka in KRaft mode), service skeletons with health checks, full
   schema migration, event contracts, Makefile.
-- [ ] **Phase 2: Indexer.** Clone, tree-sitter chunking, embeddings, semantic search.
+- [x] **Phase 2: Indexer.** Clone, tree-sitter chunking, pluggable embeddings
+  with incremental reuse, pgvector search, symbol lookup, Kafka consumer with
+  retries and dead-lettering, Redis locks and caching.
 - [ ] **Phase 3: Sandbox runner.** Hardened containers running tests, security scan, static analysis.
 - [ ] **Phase 4: Agents.** Planner, Coder, Tester, Debugger, Reviewer state machine.
 - [ ] **Phase 5: API + GitHub.** REST endpoints, Kafka wiring, PR creation.
