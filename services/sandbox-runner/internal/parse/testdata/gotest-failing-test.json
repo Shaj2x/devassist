@@ -1,0 +1,18 @@
+{"Time":"2026-10-06T20:42:01.884085257Z","Action":"start","Package":"example.com/demo/calc"}
+{"Time":"2026-10-06T20:42:01.886139295Z","Action":"run","Package":"example.com/demo/calc","Test":"TestAdd"}
+{"Time":"2026-10-06T20:42:01.886175971Z","Action":"output","Package":"example.com/demo/calc","Test":"TestAdd","Output":"=== RUN   TestAdd\n"}
+{"Time":"2026-10-06T20:42:01.886216495Z","Action":"output","Package":"example.com/demo/calc","Test":"TestAdd","Output":"--- PASS: TestAdd (0.00s)\n"}
+{"Time":"2026-10-06T20:42:01.886223222Z","Action":"pass","Package":"example.com/demo/calc","Test":"TestAdd","Elapsed":0}
+{"Time":"2026-10-06T20:42:01.88622948Z","Action":"run","Package":"example.com/demo/calc","Test":"TestAddWrong"}
+{"Time":"2026-10-06T20:42:01.886233165Z","Action":"output","Package":"example.com/demo/calc","Test":"TestAddWrong","Output":"=== RUN   TestAddWrong\n"}
+{"Time":"2026-10-06T20:42:01.886236871Z","Action":"output","Package":"example.com/demo/calc","Test":"TestAddWrong","Output":"    calc_test.go:13: Add(2, 2) = 4, want 5\n"}
+{"Time":"2026-10-06T20:42:01.886241971Z","Action":"output","Package":"example.com/demo/calc","Test":"TestAddWrong","Output":"--- FAIL: TestAddWrong (0.00s)\n"}
+{"Time":"2026-10-06T20:42:01.886245242Z","Action":"fail","Package":"example.com/demo/calc","Test":"TestAddWrong","Elapsed":0}
+{"Time":"2026-10-06T20:42:01.886248582Z","Action":"run","Package":"example.com/demo/calc","Test":"TestSkipped"}
+{"Time":"2026-10-06T20:42:01.886251262Z","Action":"output","Package":"example.com/demo/calc","Test":"TestSkipped","Output":"=== RUN   TestSkipped\n"}
+{"Time":"2026-10-06T20:42:01.886254137Z","Action":"output","Package":"example.com/demo/calc","Test":"TestSkipped","Output":"    calc_test.go:17: later\n"}
+{"Time":"2026-10-06T20:42:01.886257701Z","Action":"output","Package":"example.com/demo/calc","Test":"TestSkipped","Output":"--- SKIP: TestSkipped (0.00s)\n"}
+{"Time":"2026-10-06T20:42:01.886262322Z","Action":"skip","Package":"example.com/demo/calc","Test":"TestSkipped","Elapsed":0}
+{"Time":"2026-10-06T20:42:01.886265319Z","Action":"output","Package":"example.com/demo/calc","Output":"FAIL\n"}
+{"Time":"2026-10-06T20:42:01.886605111Z","Action":"output","Package":"example.com/demo/calc","Output":"FAIL\texample.com/demo/calc\t0.002s\n"}
+{"Time":"2026-10-06T20:42:01.886622576Z","Action":"fail","Package":"example.com/demo/calc","Elapsed":0.003}

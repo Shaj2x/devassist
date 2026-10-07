@@ -1,0 +1,3 @@
+# example.com/demo/calc
+# [example.com/demo/calc]
+vet: calc/calc.go:13:2: declared and not used: x

@@ -1,0 +1,2 @@
+{"code":"compile","severity":"error","location":{"file":"","line":0,"column":0},"end":{"file":"","line":0,"column":0},"message":"# example.com/demo/calc\ncalc/calc.go:13:2: declared and not used: x"}
+{"code":"compile","severity":"error","location":{"file":"","line":0,"column":0},"end":{"file":"","line":0,"column":0},"message":"# example.com/demo/calc [example.com/demo/calc.test]\ncalc/calc.go:13:2: declared and not used: x"}

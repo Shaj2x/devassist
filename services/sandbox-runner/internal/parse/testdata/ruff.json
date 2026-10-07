@@ -1,0 +1,19 @@
+[
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 26,
+      "row": 13
+    },
+    "filename": "/workspace/datekit/unsafe.py",
+    "fix": null,
+    "location": {
+      "column": 12,
+      "row": 13
+    },
+    "message": "Undefined name `undefined_name`",
+    "noqa_row": 13,
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  }
+]

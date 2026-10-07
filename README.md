@@ -2,7 +2,7 @@
 
 DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
 
-> **Status:** Phases 1-2 of 7 complete (foundation, indexer). See [Roadmap](#roadmap).
+> **Status:** Phases 1-3 of 7 complete (foundation, indexer, sandbox runner). See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -42,7 +42,9 @@ make smoke   # hits every service's /readyz
 | http://localhost:8080/readyz     | Indexer readiness              |
 | http://localhost:8081/readyz     | Sandbox runner readiness       |
 
-`make up` creates `.env` from [`.env.example`](.env.example) on first run. No
+`make up` creates `.env` from [`.env.example`](.env.example) on first run and
+builds the sandbox images (the first build takes a few minutes; the Go image
+is the largest). No
 API keys are needed for the foundation; the LLM and embedding providers
 default to offline mocks.
 
@@ -65,6 +67,30 @@ make demo-search q="parse a duration like 1h30m"
 How chunking, incremental reindexing and caching work:
 [docs/indexer.md](docs/indexer.md).
 
+### Try the sandbox
+
+Validate hand-written patches against the same sample repo. Each runs in a
+fresh locked-down container (no network, read-only root, non-root, resource
+and time limits) that is removed afterwards:
+
+```bash
+make demo-validate patch=datekit-fix-leap-year     # PASSED: 14 tests
+make demo-validate patch=datekit-broken-fix        # FAILED: 3 failing tests
+make demo-validate patch=datekit-insecure-helper   # FAILED: bandit B602 + ruff F821
+```
+
+```
+status: FAILED  (1.1s)
+  tests     passed   14 passed, 0 failed, 0 skipped
+  security  failed   bandit: 2 finding(s), 1 blocking
+      - B602 datekit/calendar.py:15 subprocess call with shell=True identified, security issue.
+  static    failed   ruff: 1 finding(s), 1 blocking
+      - F821 datekit/calendar.py:19 Undefined name `is_valid`
+```
+
+How isolation works, and the tests that try to break it:
+[docs/sandbox.md](docs/sandbox.md).
+
 Building behind a TLS-inspecting corporate proxy? See
 [deploy/certs/README.md](deploy/certs/README.md).
 
@@ -77,7 +103,7 @@ and golangci-lint v2.
 make install           # uv sync, go mod download, npm ci
 make test              # unit tests: Python, Go, dashboard
 make lint              # ruff + mypy --strict, gofmt + go vet + golangci-lint, eslint + tsc
-make test-integration  # migrations, schema drift, indexing pipeline on real Postgres/Redis (needs `make up`)
+make test-integration  # migrations, indexing pipeline, sandbox escape attempts (needs `make up`)
 make logs s=api        # follow one service's JSON logs
 make down              # stop (keeps data);  make clean  # stop and wipe volumes
 ```
@@ -90,10 +116,11 @@ libs/gocommon/          shared Go: the same, for the Go services
 services/api/           FastAPI service + Alembic migrations (owns the schema)
 services/orchestrator/  multi-agent workflow (Phase 4)
 services/indexer/       Go: clone, chunk, embed, semantic search
-services/sandbox-runner/ Go: isolated patch validation (Phase 3)
+services/sandbox-runner/ Go: isolated patch validation
 dashboard/              React + TypeScript + Vite review UI
 proto/events/           JSON Schemas for every Kafka event + shared fixtures
 sample-repos/           small demo repositories DevAssist works on
+demo/patches/           hand-written patches for the sandbox demo
 deploy/                 docker-compose, Kafka topic setup, k8s (Phase 7)
 docs/                   architecture and design notes
 ```
@@ -106,7 +133,9 @@ docs/                   architecture and design notes
 - [x] **Phase 2: Indexer.** Clone, tree-sitter chunking, pluggable embeddings
   with incremental reuse, pgvector search, symbol lookup, Kafka consumer with
   retries and dead-lettering, Redis locks and caching.
-- [ ] **Phase 3: Sandbox runner.** Hardened containers running tests, security scan, static analysis.
+- [x] **Phase 3: Sandbox runner.** Hardened disposable containers running
+  tests, security scans and static analysis for Python, Go and JS/TS, with
+  escape-attempt integration tests and guaranteed teardown.
 - [ ] **Phase 4: Agents.** Planner, Coder, Tester, Debugger, Reviewer state machine.
 - [ ] **Phase 5: API + GitHub.** REST endpoints, Kafka wiring, PR creation.
 - [ ] **Phase 6: Dashboard.** Live job timeline, diff viewer, validation results, approve flow.

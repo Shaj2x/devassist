@@ -1,0 +1,26 @@
+--- a/datekit/calendar.py
++++ b/datekit/calendar.py
+@@ -1,11 +1,22 @@
+ """Calendar arithmetic."""
+ 
++import subprocess
++
+ _DAYS_IN_MONTH = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+ 
+ 
+ def is_leap_year(year: int) -> bool:
+     """Return True if ``year`` is a leap year in the Gregorian calendar."""
+-    return year % 4 == 0
++    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
++
++
++def system_calendar(month: str) -> str:
++    """Render a month with the system `cal` tool."""
++    return subprocess.check_output("cal " + month, shell=True).decode()
++
++
++def next_leap_year(year: int) -> int:
++    return next(y for y in range(year + 1, year + 9) if is_leap_year(y) and is_valid(y))
+ 
+ 
+ def days_in_month(year: int, month: int) -> int:

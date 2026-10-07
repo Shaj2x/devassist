@@ -151,10 +151,27 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # The runner starts sandbox containers through the Docker socket. Access to
+  # the socket is root-equivalent on the host, so the runner is trusted code;
+  # the untrusted patch code only ever runs inside the locked-down sandboxes
+  # it creates (see docs/sandbox.md). In Kubernetes the same role is played
+  # by a dedicated node pool / gVisor runtime (Phase 7).
   sandbox-runner:
     build: { context: .., dockerfile: services/sandbox-runner/Dockerfile }
     image: devassist/sandbox-runner:dev
-    environment: *service-env
+    environment:
+      <<: *service-env
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      SANDBOX_MEMORY: ${SANDBOX_MEMORY:-1g}
+      SANDBOX_CPUS: ${SANDBOX_CPUS:-1}
+      SANDBOX_TIMEOUT: ${SANDBOX_TIMEOUT:-5m}
+      SANDBOX_CONCURRENCY: ${SANDBOX_CONCURRENCY:-2}
+      SANDBOX_INSTALL_NETWORK: ${SANDBOX_INSTALL_NETWORK:-true}
+      GIT_CONFIG_GLOBAL: /sample-repos/gitconfig
+    group_add: ["${DOCKER_GID:-0}"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../.data/sample-repos:/sample-repos:ro
     ports: ["${SANDBOX_RUNNER_PORT:-8081}:8081"]
     depends_on:
       redis:

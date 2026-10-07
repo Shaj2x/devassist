@@ -18,10 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Shaj2x/devassist/libs/gocommon/gitrepo"
 	"github.com/Shaj2x/devassist/libs/gocommon/lock"
 	"github.com/Shaj2x/devassist/services/indexer/internal/chunker"
 	"github.com/Shaj2x/devassist/services/indexer/internal/embed"
-	"github.com/Shaj2x/devassist/services/indexer/internal/gitrepo"
 	"github.com/Shaj2x/devassist/services/indexer/internal/store"
 	"github.com/Shaj2x/devassist/services/indexer/internal/walker"
 	"golang.org/x/sync/errgroup"

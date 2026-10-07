@@ -77,3 +77,31 @@ func TestCloneRejectsBadInput(t *testing.T) {
 		t.Error("expected fetch error")
 	}
 }
+
+func TestApply(t *testing.T) {
+	url, _, _ := makeRepo(t)
+	co, err := Clone(context.Background(), url, filepath.Join(t.TempDir(), "co"), Options{Branch: "main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := "--- a/a.py\n+++ b/a.py\n@@ -1 +1,2 @@\n-v2\n+v3\n+extra\n"
+	res, err := Apply(context.Background(), co.Dir, good)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.ChangedFiles) != 1 || res.ChangedFiles[0] != "a.py" || res.Additions != 2 || res.Deletions != 1 {
+		t.Errorf("result = %+v", res)
+	}
+	content, _ := os.ReadFile(filepath.Join(co.Dir, "a.py"))
+	if string(content) != "v3\nextra\n" {
+		t.Errorf("content = %q", content)
+	}
+
+	stale := "--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-v1\n+v9\n" // context no longer matches
+	if _, err := Apply(context.Background(), co.Dir, stale); err == nil || !strings.Contains(err.Error(), "patch does not apply") {
+		t.Errorf("stale patch: %v", err)
+	}
+	if _, err := Apply(context.Background(), co.Dir, "  "); err == nil {
+		t.Error("empty patch should fail")
+	}
+}

@@ -2,6 +2,9 @@
 
 SHELL := /bin/bash
 COMPOSE := docker compose -f deploy/docker-compose.yml --env-file .env
+# Group owning the Docker socket, so the non-root sandbox-runner can use it.
+export DOCKER_GID := $(shell stat -c %g /var/run/docker.sock 2>/dev/null || stat -f %g /var/run/docker.sock 2>/dev/null || echo 0)
+SANDBOX_LANGS := python go node
 GO_MODULES := libs/gocommon services/indexer services/sandbox-runner
 PY_PATHS := libs/devassist-common services/api services/orchestrator
 export GOTOOLCHAIN := local
@@ -21,7 +24,7 @@ help: ## Show this help
 # ---------------------------------------------------------------------------
 
 .PHONY: up
-up: .env sample-repos ## Build and start the whole stack, wait until every service is healthy
+up: .env sample-repos sandbox-images ## Build and start the whole stack, wait until every service is healthy
 	$(COMPOSE) up -d --build --wait
 	@$(MAKE) --no-print-directory ps
 
@@ -45,6 +48,16 @@ logs: ## Tail logs from every service (make logs s=api for one)
 migrate: ## Apply database migrations to the running stack
 	$(COMPOSE) run --rm migrate
 
+.PHONY: sandbox-images
+sandbox-images: ## Build the per-language sandbox images (python, go, node)
+	@for lang in $(SANDBOX_LANGS); do \
+	  dir=services/sandbox-runner/images/$$lang; \
+	  rm -rf $$dir/deploy-certs && cp -R deploy/certs $$dir/deploy-certs; \
+	  echo "==> devassist/sandbox-$$lang"; \
+	  docker build -q -t devassist/sandbox-$$lang:latest $$dir >/dev/null || exit 1; \
+	  rm -rf $$dir/deploy-certs; \
+	done
+
 .PHONY: sample-repos
 sample-repos: ## Publish sample-repos/* as local git remotes under .data/
 	@./scripts/publish-sample-repos.sh
@@ -61,6 +74,13 @@ demo-index: ## Index the datekit sample repo (stack must be up)
 .PHONY: demo-search
 demo-search: ## Search the datekit sample: make demo-search q="parse a duration"
 	$(COMPOSE) exec indexer indexer search -name demo/datekit -k 5 "$(q)"
+
+patch ?= datekit-fix-leap-year
+.PHONY: demo-validate
+demo-validate: ## Validate a demo patch in the sandbox: make demo-validate patch=datekit-broken-fix
+	@sha=$$(git -C .data/sample-repos/datekit.git rev-parse HEAD); \
+	$(COMPOSE) exec -T sandbox-runner sandbox-runner validate \
+	  -url file:///sample-repos/datekit.git -sha $$sha < demo/patches/$(patch).diff
 
 .PHONY: smoke
 smoke: ## Hit every service's readiness endpoint
@@ -103,6 +123,7 @@ test-dashboard:
 test-integration: .env ## Integration tests against the running stack (make up first)
 	uv run pytest -m integration
 	cd services/indexer && go test -tags integration -count=1 ./...
+	cd services/sandbox-runner && go test -tags integration -count=1 ./...
 
 .PHONY: lint
 lint: lint-python lint-go lint-dashboard ## Run every linter and type checker

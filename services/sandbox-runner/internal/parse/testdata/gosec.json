@@ -1,0 +1,59 @@
+{
+	"Golang errors": {
+		"": [
+			{
+				"line": 0,
+				"column": 0,
+				"error": "# command-line-arguments\ncalc/calc.go:13:2: declared and not used: x"
+			}
+		],
+		"/workspace/calc/calc.go": [
+			{
+				"line": 13,
+				"column": 2,
+				"error": "declared and not used: x"
+			}
+		]
+	},
+	"Issues": [
+		{
+			"severity": "MEDIUM",
+			"confidence": "HIGH",
+			"cwe": {
+				"id": "328",
+				"url": "https://cwe.mitre.org/data/definitions/328.html"
+			},
+			"rule_id": "G401",
+			"details": "Use of weak cryptographic primitive",
+			"file": "/workspace/calc/calc.go",
+			"code": "9: \n10: func Hash(s string) string { return fmt.Sprintf(\"%x\", md5.Sum([]byte(s))) }\n11: \n",
+			"line": "10",
+			"column": "55",
+			"nosec": false,
+			"suppressions": null
+		},
+		{
+			"severity": "MEDIUM",
+			"confidence": "HIGH",
+			"cwe": {
+				"id": "327",
+				"url": "https://cwe.mitre.org/data/definitions/327.html"
+			},
+			"rule_id": "G501",
+			"details": "Blocklisted import crypto/md5: weak cryptographic primitive",
+			"file": "/workspace/calc/calc.go",
+			"code": "3: import (\n4: \t\"crypto/md5\"\n5: \t\"fmt\"\n",
+			"line": "4",
+			"column": "2",
+			"nosec": false,
+			"suppressions": null
+		}
+	],
+	"Stats": {
+		"files": 1,
+		"lines": 16,
+		"nosec": 0,
+		"found": 2
+	},
+	"GosecVersion": "dev"
+}

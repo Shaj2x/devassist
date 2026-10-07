@@ -1,0 +1,12 @@
+{"ImportPath":"example.com/demo/broken","Action":"build-output","Output":"# example.com/demo/broken\n"}
+{"ImportPath":"example.com/demo/broken","Action":"build-output","Output":"broken/broken.go:3:26: cannot use \"string\" (untyped string constant) as int value in return statement\n"}
+{"ImportPath":"example.com/demo/broken","Action":"build-fail"}
+{"Time":"2026-10-06T20:41:30.069172153Z","Action":"start","Package":"example.com/demo/broken"}
+{"Time":"2026-10-06T20:41:30.069245119Z","Action":"output","Package":"example.com/demo/broken","Output":"FAIL\texample.com/demo/broken [build failed]\n"}
+{"Time":"2026-10-06T20:41:30.069254877Z","Action":"fail","Package":"example.com/demo/broken","Elapsed":0,"FailedBuild":"example.com/demo/broken"}
+{"ImportPath":"example.com/demo/calc [example.com/demo/calc.test]","Action":"build-output","Output":"# example.com/demo/calc [example.com/demo/calc.test]\n"}
+{"ImportPath":"example.com/demo/calc [example.com/demo/calc.test]","Action":"build-output","Output":"calc/calc.go:13:2: declared and not used: x\n"}
+{"ImportPath":"example.com/demo/calc [example.com/demo/calc.test]","Action":"build-fail"}
+{"Time":"2026-10-06T20:41:32.232030245Z","Action":"start","Package":"example.com/demo/calc"}
+{"Time":"2026-10-06T20:41:32.232100289Z","Action":"output","Package":"example.com/demo/calc","Output":"FAIL\texample.com/demo/calc [build failed]\n"}
+{"Time":"2026-10-06T20:41:32.232107813Z","Action":"fail","Package":"example.com/demo/calc","Elapsed":0,"FailedBuild":"example.com/demo/calc [example.com/demo/calc.test]"}
