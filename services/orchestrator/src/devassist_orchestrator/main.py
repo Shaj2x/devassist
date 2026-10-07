@@ -6,6 +6,7 @@ we then signal the worker to finish its current unit of work and exit.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,6 +19,8 @@ from devassist_common.logging import configure_logging
 from fastapi import FastAPI, Response, status
 from redis.asyncio import Redis
 
+from devassist_orchestrator.cli import add_run_parser
+from devassist_orchestrator.cli import run as run_cli
 from devassist_orchestrator.config import Settings
 from devassist_orchestrator.worker import Worker
 
@@ -81,6 +84,14 @@ async def serve(settings: Settings) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(prog="devassist-orchestrator")
+    sub = parser.add_subparsers(dest="command")
+    sub.add_parser("serve", help="run the worker and health server (default)")
+    add_run_parser(sub)
+    args = parser.parse_args()
+
+    if args.command == "run":
+        raise SystemExit(run_cli(args))
     settings = Settings()
     configure_logging(settings.service_name, settings.log_level)
     asyncio.run(serve(settings))

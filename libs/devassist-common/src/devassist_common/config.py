@@ -14,7 +14,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ServiceSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # env_ignore_empty: a blank `KEY=` line in .env means "use the default".
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True)
 
     devassist_env: Literal["development", "test", "production"] = "development"
     log_level: str = "INFO"

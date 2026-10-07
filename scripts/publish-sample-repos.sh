@@ -28,6 +28,8 @@ for src in "$ROOT"/sample-repos/*/; do
   trap 'rm -rf "$work"' EXIT
 
   cp -R "$src". "$work"/
+  # Never publish local build/test byproducts.
+  find "$work" \( -name __pycache__ -o -name .pytest_cache -o -name node_modules -o -name '*.pyc' \) -prune -exec rm -rf {} +
   git -C "$work" init --quiet -b main
   git -C "$work" add -A
   git -C "$work" commit --quiet -m "Initial import of $name sample"

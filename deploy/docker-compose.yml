@@ -122,8 +122,18 @@ services:
       <<: *service-env
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_MODEL: ${LLM_MODEL:-}
+      LLM_MOCK_SCRIPT: ${LLM_MOCK_SCRIPT:-datekit_fix_leap_year}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-180}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-3}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MAX_ITERATIONS: ${MAX_ITERATIONS:-3}
+      JOB_BUDGET_USD: ${JOB_BUDGET_USD:-2.0}
+      SANDBOX_RUNNER_URL: http://sandbox-runner:8081
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GIT_CONFIG_GLOBAL: /sample-repos/gitconfig
+    volumes:
+      - ../.data/sample-repos:/sample-repos:ro
     ports: ["${ORCHESTRATOR_PORT:-8001}:8001"]
     depends_on:
       <<: *depends-on-infra

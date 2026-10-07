@@ -19,12 +19,19 @@ help: ## Show this help
 	cp .env.example .env
 	@echo "Created .env from .env.example"
 
+# Record the Docker socket's group in .env, so the sandbox runner can reach
+# the socket even when the stack is started with plain `docker compose`.
+.PHONY: docker-gid
+docker-gid: .env
+	@grep -q '^DOCKER_GID=' .env && sed -i.bak 's/^DOCKER_GID=.*/DOCKER_GID=$(DOCKER_GID)/' .env && rm -f .env.bak \
+	  || echo 'DOCKER_GID=$(DOCKER_GID)' >> .env
+
 # ---------------------------------------------------------------------------
 # Stack
 # ---------------------------------------------------------------------------
 
 .PHONY: up
-up: .env sample-repos sandbox-images ## Build and start the whole stack, wait until every service is healthy
+up: .env docker-gid sample-repos sandbox-images ## Build and start the whole stack, wait until every service is healthy
 	$(COMPOSE) up -d --build --wait
 	@$(MAKE) --no-print-directory ps
 
@@ -81,6 +88,11 @@ demo-validate: ## Validate a demo patch in the sandbox: make demo-validate patch
 	@sha=$$(git -C .data/sample-repos/datekit.git rev-parse HEAD); \
 	$(COMPOSE) exec -T sandbox-runner sandbox-runner validate \
 	  -url file:///sample-repos/datekit.git -sha $$sha < demo/patches/$(patch).diff
+
+task ?= Fix the failing test in datekit/calendar.py
+.PHONY: demo-run
+demo-run: ## Run the agent loop on datekit (mock LLM unless LLM_PROVIDER is set)
+	$(COMPOSE) exec -T orchestrator devassist-orchestrator run --repo demo/datekit --task "$(task)" $(args)
 
 .PHONY: smoke
 smoke: ## Hit every service's readiness endpoint

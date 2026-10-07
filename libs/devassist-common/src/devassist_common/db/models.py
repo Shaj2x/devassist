@@ -245,6 +245,8 @@ class Job(UUIDPrimaryKey, Timestamps, Base):
     current_iteration: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     reviewer_summary: Mapped[str | None] = mapped_column(Text)
+    # Full Reviewer output: summary, risk level, concerns, follow-ups.
+    review: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     review_feedback: Mapped[str | None] = mapped_column(Text)  # human "request changes" note
     error: Mapped[str | None] = mapped_column(Text)
     total_input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

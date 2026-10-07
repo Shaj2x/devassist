@@ -2,7 +2,7 @@
 
 DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
 
-> **Status:** Phases 1-3 of 7 complete (foundation, indexer, sandbox runner). See [Roadmap](#roadmap).
+> **Status:** Phases 1-4 of 7 complete (foundation, indexer, sandbox runner, agents). See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -91,6 +91,35 @@ status: FAILED  (1.1s)
 How isolation works, and the tests that try to break it:
 [docs/sandbox.md](docs/sandbox.md).
 
+### Run the agents
+
+Five agents plan, code, test, debug and review a change, validating every
+patch in the sandbox. Without an API key the scripted mock LLM is used, and
+its Coder deliberately gets the first attempt wrong so you see the debug loop:
+
+```bash
+make demo-run
+```
+
+```
+ #  iter  agent     status     in_tok out_tok    cost $     ms
+ 1     1  planner   succeeded     572     212    0.0000      5
+ 2     1  coder     succeeded    1317     269    0.0000      5
+ 3     1  tester    succeeded    1103     340    0.0000      5
+ 4     2  debugger  succeeded    1865     351    0.0000      5
+ 5     2  reviewer  succeeded     695     150    0.0000      5
+
+patches:
+  iteration 1: superseded +14/-1 in 2 file(s)  [tests=failed security=passed static=passed]
+  iteration 2: passed     +14/-1 in 2 file(s)  [tests=passed security=passed static=passed]
+
+result: AWAITING_REVIEW after 2 iteration(s)
+```
+
+Set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` (or `openai` and
+`OPENAI_API_KEY`) in `.env` to run real models. How the loop works and why it
+cannot run forever: [docs/agents.md](docs/agents.md).
+
 Building behind a TLS-inspecting corporate proxy? See
 [deploy/certs/README.md](deploy/certs/README.md).
 
@@ -103,7 +132,7 @@ and golangci-lint v2.
 make install           # uv sync, go mod download, npm ci
 make test              # unit tests: Python, Go, dashboard
 make lint              # ruff + mypy --strict, gofmt + go vet + golangci-lint, eslint + tsc
-make test-integration  # migrations, indexing pipeline, sandbox escape attempts (needs `make up`)
+make test-integration  # migrations, indexing, sandbox escapes, full agent pipeline (needs `make up`)
 make logs s=api        # follow one service's JSON logs
 make down              # stop (keeps data);  make clean  # stop and wipe volumes
 ```
@@ -114,7 +143,7 @@ make down              # stop (keeps data);  make clean  # stop and wipe volumes
 libs/devassist-common/  shared Python: config, JSON logging, events, DB models, health checks
 libs/gocommon/          shared Go: the same, for the Go services
 services/api/           FastAPI service + Alembic migrations (owns the schema)
-services/orchestrator/  multi-agent workflow (Phase 4)
+services/orchestrator/  multi-agent workflow: providers, agents, state machine
 services/indexer/       Go: clone, chunk, embed, semantic search
 services/sandbox-runner/ Go: isolated patch validation
 dashboard/              React + TypeScript + Vite review UI
@@ -136,7 +165,9 @@ docs/                   architecture and design notes
 - [x] **Phase 3: Sandbox runner.** Hardened disposable containers running
   tests, security scans and static analysis for Python, Go and JS/TS, with
   escape-attempt integration tests and guaranteed teardown.
-- [ ] **Phase 4: Agents.** Planner, Coder, Tester, Debugger, Reviewer state machine.
+- [x] **Phase 4: Agents.** Planner, Coder, Tester, Debugger and Reviewer on
+  a hand-written state machine, with Anthropic/OpenAI/mock providers, full
+  step persistence, cost budgets and stuck detection.
 - [ ] **Phase 5: API + GitHub.** REST endpoints, Kafka wiring, PR creation.
 - [ ] **Phase 6: Dashboard.** Live job timeline, diff viewer, validation results, approve flow.
 - [ ] **Phase 7: Deployment + polish.** Kubernetes, CI, metrics, full docs.
