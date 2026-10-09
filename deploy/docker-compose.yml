@@ -107,8 +107,12 @@ services:
     image: devassist/api:dev
     environment:
       <<: *service-env
+      AUTH_MODE: ${AUTH_MODE:-dev}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+      ALLOW_LOCAL_REPOS: ${ALLOW_LOCAL_REPOS:-}
+      DEFAULT_MAX_ITERATIONS: ${MAX_ITERATIONS:-3}
     ports: ["${API_PORT:-8000}:8000"]
     depends_on:
       <<: *depends-on-infra
@@ -130,6 +134,7 @@ services:
       MAX_ITERATIONS: ${MAX_ITERATIONS:-3}
       JOB_BUDGET_USD: ${JOB_BUDGET_USD:-2.0}
       SANDBOX_RUNNER_URL: http://sandbox-runner:8081
+      ORCHESTRATOR_CONCURRENCY: ${ORCHESTRATOR_CONCURRENCY:-2}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GIT_CONFIG_GLOBAL: /sample-repos/gitconfig
     volumes:

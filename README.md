@@ -2,7 +2,7 @@
 
 DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
 
-> **Status:** Phases 1-4 of 7 complete (foundation, indexer, sandbox runner, agents). See [Roadmap](#roadmap).
+> **Status:** Phases 1-5 of 7 complete (foundation, indexer, sandbox runner, agents, API + GitHub). See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -120,6 +120,35 @@ Set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` (or `openai` and
 `OPENAI_API_KEY`) in `.env` to run real models. How the loop works and why it
 cannot run forever: [docs/agents.md](docs/agents.md).
 
+### Drive it through the API
+
+The same flow, event-driven, the way the dashboard uses it: register the
+repo (the indexer picks it up from Kafka), submit a task (the orchestrator
+picks it up, and every patch goes to the sandbox runner and back over
+Kafka), then approve:
+
+```bash
+make demo-api
+```
+
+```
+==> waiting for the indexer (repo.registered -> repo.indexed)
+==> submitting: Fix the failing test in datekit/calendar.py
+    queued
+    validating
+    awaiting_review
+  patch 1: superseded tests=failed security=passed static=passed
+  patch 2: passed     tests=passed security=passed static=passed
+  review (low risk): Fixes is_leap_year to follow the Gregorian calendar ...
+Approve:  curl -X POST http://localhost:8000/v1/jobs/<id>/approve
+```
+
+For a real GitHub repository, put a fine-grained token with Contents and
+Pull requests write access in `GITHUB_TOKEN`, register it with
+`POST /v1/repos {"full_name": "owner/name"}`, and approving opens a pull
+request. Endpoints, auth modes and delivery guarantees:
+[docs/api.md](docs/api.md).
+
 Building behind a TLS-inspecting corporate proxy? See
 [deploy/certs/README.md](deploy/certs/README.md).
 
@@ -168,6 +197,8 @@ docs/                   architecture and design notes
 - [x] **Phase 4: Agents.** Planner, Coder, Tester, Debugger and Reviewer on
   a hand-written state machine, with Anthropic/OpenAI/mock providers, full
   step persistence, cost budgets and stuck detection.
-- [ ] **Phase 5: API + GitHub.** REST endpoints, Kafka wiring, PR creation.
+- [x] **Phase 5: API + GitHub.** REST API with dev and GitHub-token auth,
+  Kafka wiring end to end (DLQs, idempotent consumers), live progress over
+  SSE, approve / reject / request-changes, PRs via the Git Data API.
 - [ ] **Phase 6: Dashboard.** Live job timeline, diff viewer, validation results, approve flow.
 - [ ] **Phase 7: Deployment + polish.** Kubernetes, CI, metrics, full docs.

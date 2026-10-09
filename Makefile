@@ -94,6 +94,10 @@ task ?= Fix the failing test in datekit/calendar.py
 demo-run: ## Run the agent loop on datekit (mock LLM unless LLM_PROVIDER is set)
 	$(COMPOSE) exec -T orchestrator devassist-orchestrator run --repo demo/datekit --task "$(task)" $(args)
 
+.PHONY: demo-api
+demo-api: ## The whole flow through the REST API and Kafka: make demo-api task="..."
+	@scripts/demo-api.sh "$(task)"
+
 .PHONY: smoke
 smoke: ## Hit every service's readiness endpoint
 	@for url in http://localhost:8000/readyz http://localhost:8001/readyz \
@@ -144,7 +148,8 @@ lint: lint-python lint-go lint-dashboard ## Run every linter and type checker
 lint-python:
 	uv run ruff check .
 	uv run ruff format --check .
-	uv run mypy $(addsuffix /src,$(PY_PATHS)) $(addsuffix /tests,$(PY_PATHS))
+	@# One run per package: each tests/ has its own conftest module.
+	@for p in $(PY_PATHS); do echo "==> mypy $$p"; uv run mypy $$p/src $$p/tests || exit 1; done
 
 .PHONY: lint-go
 lint-go:
