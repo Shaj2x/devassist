@@ -176,6 +176,8 @@ class PullRequestOut(BaseModel):
 
 
 class JobDetail(JobSummary):
+    # Approving opens a pull request only for GitHub repositories.
+    repo_is_github: bool
     base_commit_sha: str | None
     plan: dict[str, Any] | None
     review: dict[str, Any] | None

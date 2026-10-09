@@ -2,7 +2,7 @@
 
 DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
 
-> **Status:** Phases 1-5 of 7 complete (foundation, indexer, sandbox runner, agents, API + GitHub). See [Roadmap](#roadmap).
+> **Status:** Phases 1-6 of 7 complete (foundation, indexer, sandbox runner, agents, API + GitHub, dashboard). See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -120,6 +120,19 @@ Set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` (or `openai` and
 `OPENAI_API_KEY`) in `.env` to run real models. How the loop works and why it
 cannot run forever: [docs/agents.md](docs/agents.md).
 
+### Use the dashboard
+
+Open <http://localhost:3000>, register `demo/datekit` with clone URL
+`file:///sample-repos/datekit.git` (the form suggests it), click **New task**,
+pick the example task and **Start agents**. The job page follows the agents
+live over server-sent events: which agent is working, every patch with its
+diff and sandbox results (tests, security scan, static analysis, full
+output), the plan, and the Reviewer's verdict. Click any step in the
+timeline to read the exact prompt and response. Then approve, reject, or
+request changes, which sends your feedback back to the agents.
+
+![Job review page](docs/images/job-review.png)
+
 ### Drive it through the API
 
 The same flow, event-driven, the way the dashboard uses it: register the
@@ -200,5 +213,8 @@ docs/                   architecture and design notes
 - [x] **Phase 5: API + GitHub.** REST API with dev and GitHub-token auth,
   Kafka wiring end to end (DLQs, idempotent consumers), live progress over
   SSE, approve / reject / request-changes, PRs via the Git Data API.
-- [ ] **Phase 6: Dashboard.** Live job timeline, diff viewer, validation results, approve flow.
+- [x] **Phase 6: Dashboard.** Repository registration, task submission, live
+  job page (agent timeline with prompt/response drill-down, per-iteration
+  diffs, sandbox results, plan and review), approve / reject / request
+  changes, GitHub-token sign-in.
 - [ ] **Phase 7: Deployment + polish.** Kubernetes, CI, metrics, full docs.

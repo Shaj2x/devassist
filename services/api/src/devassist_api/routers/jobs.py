@@ -41,6 +41,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer, selectinload
 
+from devassist_api.config import Settings
 from devassist_api.deps import (
     CurrentUser,
     DbDep,
@@ -112,7 +113,7 @@ def summary(job: Job) -> JobSummary:
     )
 
 
-async def job_detail(db: AsyncSession, redis: Redis, job: Job) -> JobDetail:
+async def job_detail(db: AsyncSession, redis: Redis, job: Job, settings: Settings) -> JobDetail:
     steps = await db.scalars(
         select(AgentStep)
         .where(AgentStep.job_id == job.id)
@@ -131,6 +132,7 @@ async def job_detail(db: AsyncSession, redis: Redis, job: Job) -> JobDetail:
         progress = json.loads(raw) if raw else None
     return JobDetail(
         **summary(job).model_dump(),
+        repo_is_github=is_github_repo(job.repository, settings),
         base_commit_sha=job.base_commit_sha,
         plan=job.plan,
         review=job.review,
@@ -185,9 +187,11 @@ async def transition(
         )
 
 
-async def reload(db: AsyncSession, redis: Redis, user: CurrentUser, job_id: uuid.UUID) -> JobDetail:
+async def reload(
+    db: AsyncSession, redis: Redis, user: CurrentUser, job_id: uuid.UUID, settings: Settings
+) -> JobDetail:
     db.expire_all()
-    return await job_detail(db, redis, await get_owned_job(db, user, job_id))
+    return await job_detail(db, redis, await get_owned_job(db, user, job_id), settings)
 
 
 # --- create / read ------------------------------------------------------------
@@ -266,8 +270,10 @@ async def list_jobs(
 
 
 @router.get("/{job_id}", response_model=JobDetail)
-async def get_job(job_id: uuid.UUID, db: DbDep, redis: RedisDep, user: UserDep) -> JobDetail:
-    return await job_detail(db, redis, await get_owned_job(db, user, job_id))
+async def get_job(
+    job_id: uuid.UUID, db: DbDep, redis: RedisDep, user: UserDep, settings: SettingsDep
+) -> JobDetail:
+    return await job_detail(db, redis, await get_owned_job(db, user, job_id), settings)
 
 
 @router.get("/{job_id}/steps/{step_id}", response_model=StepDetail)
@@ -373,7 +379,7 @@ async def approve_job(
     await db.commit()
     if not to_github:
         # Local and sample repositories have nowhere to open a PR.
-        return await reload(db, redis, user, job_id)
+        return await reload(db, redis, user, job_id, settings)
 
     branch = f"devassist/job-{job.id.hex[:8]}-v{patch.iteration}"
     assert patch.files is not None and job.base_commit_sha is not None
@@ -418,12 +424,17 @@ async def approve_job(
     )
     await db.commit()
     log.info("pull request opened", extra={"job_id": str(job.id), "url": pr.url})
-    return await reload(db, redis, user, job_id)
+    return await reload(db, redis, user, job_id, settings)
 
 
 @router.post("/{job_id}/reject", response_model=JobDetail)
 async def reject_job(
-    job_id: uuid.UUID, body: Reject, db: DbDep, redis: RedisDep, user: UserDep
+    job_id: uuid.UUID,
+    body: Reject,
+    db: DbDep,
+    redis: RedisDep,
+    user: UserDep,
+    settings: SettingsDep,
 ) -> JobDetail:
     job = await get_owned_job(db, user, job_id)
     await transition(
@@ -440,7 +451,7 @@ async def reject_job(
         .values(status=PatchStatus.REJECTED)
     )
     await db.commit()
-    return await reload(db, redis, user, job_id)
+    return await reload(db, redis, user, job_id, settings)
 
 
 @router.post("/{job_id}/request-changes", response_model=JobDetail)
@@ -451,6 +462,7 @@ async def request_changes(
     redis: RedisDep,
     user: UserDep,
     publisher: PublisherDep,
+    settings: SettingsDep,
 ) -> JobDetail:
     """Send the job back to the agents. Patch numbering continues, and the
     feedback is appended to the task the Planner and Coder see."""
@@ -466,4 +478,4 @@ async def request_changes(
     )
     await db.commit()
     await publish_job(publisher, job)
-    return await reload(db, redis, user, job_id)
+    return await reload(db, redis, user, job_id, settings)
