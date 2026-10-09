@@ -65,7 +65,7 @@ def create_health_app(settings: Settings, worker: Worker) -> FastAPI:
 
 
 async def serve(settings: Settings) -> None:
-    worker = Worker()
+    worker = Worker(settings)
     stop = asyncio.Event()
     server = uvicorn.Server(
         uvicorn.Config(

@@ -56,8 +56,10 @@ class MemoryStore:
     async def save_plan(self, plan: dict[str, Any]) -> None:
         self.plan = plan
 
-    async def save_patch(self, iteration: int, diff: str, stats: DiffStats) -> str:
-        self.patches.append({"iteration": iteration, "diff": diff, "stats": stats})
+    async def save_patch(
+        self, iteration: int, diff: str, stats: DiffStats, files: dict[str, str | None]
+    ) -> str:
+        self.patches.append({"iteration": iteration, "diff": diff, "stats": stats, "files": files})
         return f"patch-{iteration}"
 
     async def record_validation(self, patch_id: str, result: ValidationCompleted) -> None:

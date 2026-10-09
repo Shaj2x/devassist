@@ -309,6 +309,9 @@ class Patch(UUIDPrimaryKey, Base):
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
     iteration: Mapped[int] = mapped_column(Integer)
     diff: Mapped[str] = mapped_column(Text)
+    # Final content of every file the patch touches (None = deleted), so a
+    # pull request can be created through the GitHub API without git.
+    files: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     status: Mapped[PatchStatus] = mapped_column(
         str_enum(PatchStatus, "patch_status"), default=PatchStatus.GENERATED
     )

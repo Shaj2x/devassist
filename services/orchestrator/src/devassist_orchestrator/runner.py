@@ -9,11 +9,11 @@ import logging
 import uuid
 from decimal import Decimal
 
-from devassist_common.db import Job, Repository
+from devassist_common.db import Job, JobStatus, Patch, Repository
 from devassist_common.db.session import create_engine, create_session_factory
 from devassist_common.locks import redis_lock
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from devassist_orchestrator.config import Settings
 from devassist_orchestrator.llm import LLMProvider, create_provider
@@ -48,6 +48,9 @@ async def execute_job(
                 raise ValueError(f"job {job_id} not found")
             repo = await s.scalar(select(Repository).where(Repository.id == job.repo_id))
             assert repo is not None
+            # A re-run after "request changes" continues the patch numbering.
+            last = await s.scalar(select(func.max(Patch.iteration)).where(Patch.job_id == job.id))
+            feedback = job.review_feedback if job.status == JobStatus.CHANGES_REQUESTED else None
             spec = JobSpec(
                 job_id=job_id,
                 repo_id=str(repo.id),
@@ -58,6 +61,8 @@ async def execute_job(
                 max_iterations=job.max_iterations,
                 base_commit_sha=job.base_commit_sha,
                 validation_config=dict(repo.config or {}),
+                first_iteration=(last or 0) + 1,
+                feedback=feedback,
             )
         store = SqlJobStore(sessions, redis, job_id, provider=llm.name, model=llm.model)
         runner = JobRunner(

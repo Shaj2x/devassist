@@ -236,3 +236,27 @@ def test_helpers(make_validation: Any) -> None:
     assert _related_tests(tree, ["app/calendar.py"])[0] == "tests/test_calendar.py"
     report = render_validation(make_validation("failed", failing="boom"))
     assert "Overall: FAILED" in report and "Tests: failed" in report
+
+
+async def test_request_changes_rerun_continues_numbering_and_sees_feedback(
+    repo_url: str, tmp_path: Path, store: Any, make_validation: Any
+) -> None:
+    sandbox = ScriptedSandbox(make_validation)
+    rerun = JobSpec(
+        job_id="job-1",
+        repo_id="repo-1",
+        repo_name="o/r",
+        clone_url=repo_url,
+        default_branch="main",
+        task="add() subtracts; fix it",
+        max_iterations=2,
+        first_iteration=3,
+        feedback="Please also handle negative numbers.",
+    )
+    out = await runner(MockProvider(script(FIXED, [])), store, sandbox, tmp_path).run(rerun)
+
+    assert out.status == "awaiting_review" and out.iterations == 3
+    assert store.patches[0]["iteration"] == 3 and sandbox.requests[0].iteration == 3
+    assert "negative numbers" in store.steps[0]["request"].messages[0].content
+    # The patch records final file contents for PR creation.
+    assert store.patches[0]["files"]["app/math.py"] == FIXED

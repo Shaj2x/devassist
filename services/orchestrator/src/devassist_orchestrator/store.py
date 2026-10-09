@@ -30,6 +30,7 @@ from devassist_common.db import (
     ValidationStatus,
 )
 from devassist_common.events import ValidationCompleted
+from devassist_common.progress import events_channel, progress_key
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -41,14 +42,6 @@ log = logging.getLogger(__name__)
 
 TERMINAL = {JobStatus.AWAITING_REVIEW, JobStatus.FAILED, JobStatus.CANCELLED}
 PROGRESS_TTL_SECONDS = 24 * 3600
-
-
-def progress_key(job_id: str) -> str:
-    return f"devassist:job:{job_id}:progress"
-
-
-def events_channel(job_id: str) -> str:
-    return f"devassist:job:{job_id}:events"
 
 
 def _clean(value: Any) -> Any:
@@ -187,7 +180,9 @@ class SqlJobStore:
             await s.execute(update(Job).where(Job.id == self.job_id).values(plan=plan))
             await s.commit()
 
-    async def save_patch(self, iteration: int, diff: str, stats: DiffStats) -> str:
+    async def save_patch(
+        self, iteration: int, diff: str, stats: DiffStats, files: dict[str, str | None]
+    ) -> str:
         async with self.sessions() as s:
             # Earlier patches that did not pass are superseded by this one.
             await s.execute(
@@ -198,7 +193,8 @@ class SqlJobStore:
             patch = Patch(
                 job_id=self.job_id,
                 iteration=iteration,
-                diff=diff,
+                diff=_clean(diff),
+                files=_clean(files),
                 status=PatchStatus.VALIDATING,
                 files_changed=stats.files_changed,
                 additions=stats.additions,

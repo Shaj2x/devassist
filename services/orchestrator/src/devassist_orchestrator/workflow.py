@@ -75,7 +75,9 @@ class JobStore(StepRecorder, Protocol):
 
     async def save_plan(self, plan: dict[str, Any]) -> None: ...
 
-    async def save_patch(self, iteration: int, diff: str, stats: DiffStats) -> str: ...
+    async def save_patch(
+        self, iteration: int, diff: str, stats: DiffStats, files: dict[str, str | None]
+    ) -> str: ...
 
     async def record_validation(self, patch_id: str, result: ValidationCompleted) -> None: ...
 
@@ -93,6 +95,23 @@ class JobSpec:
     max_iterations: int
     base_commit_sha: str | None = None
     validation_config: dict[str, Any] = field(default_factory=dict)
+    # Set when a human requested changes: patches continue numbering after
+    # the earlier run's, and the feedback is part of the task.
+    first_iteration: int = 1
+    feedback: str | None = None
+
+    @property
+    def last_iteration(self) -> int:
+        return self.first_iteration + self.max_iterations - 1
+
+    @property
+    def full_task(self) -> str:
+        if not self.feedback:
+            return self.task
+        return (
+            f"{self.task}\n\n"
+            f"A human reviewed an earlier attempt and requested changes:\n{self.feedback}"
+        )
 
 
 @dataclass
@@ -150,7 +169,10 @@ class JobRunner:
                 return Outcome("failed", 0, error=str(e))
             try:
                 ctx = AgentContext(
-                    task=spec.task, repo_name=spec.repo_name, file_tree=await ws.files()
+                    task=spec.full_task,
+                    repo_name=spec.repo_name,
+                    file_tree=await ws.files(),
+                    iteration=spec.first_iteration,
                 )
                 run = _Run(spec=spec, ws=ws, ctx=ctx)
                 return await self._loop(run)
@@ -175,7 +197,7 @@ class JobRunner:
                 run.error, state = str(e), State.FAILED
             except LLMError as e:
                 run.error, state = f"{state.value} failed: {e}", State.FAILED
-            except (WorkspaceError, httpx.HTTPError) as e:
+            except (WorkspaceError, httpx.HTTPError, TimeoutError) as e:
                 run.error, state = f"{state.value} failed: {type(e).__name__}: {e}", State.FAILED
 
         if state == State.DONE:
@@ -188,7 +210,7 @@ class JobRunner:
     # --- states ---------------------------------------------------------------
 
     async def _plan(self, run: _Run) -> State:
-        await self.store.set_status(JobStatus.PLANNING, iteration=1)
+        await self.store.set_status(JobStatus.PLANNING, iteration=run.ctx.iteration)
         run.ctx.snippets = _render_hits(
             await self.retrieval.search(run.spec.repo_id, run.spec.task, self.top_k)
         )
@@ -229,6 +251,7 @@ class JobRunner:
                 job_id=run.spec.job_id,
                 patch_id=run.patch_id,
                 iteration=run.ctx.iteration,
+                repo_id=run.spec.repo_id,
                 clone_url=run.spec.clone_url,
                 commit_sha=run.ws.commit_sha,
                 diff=run.ctx.diff,
@@ -239,8 +262,9 @@ class JobRunner:
         await self.store.record_validation(run.patch_id, result)
         if result.status == "passed":
             return State.REVIEW
-        if run.ctx.iteration >= run.spec.max_iterations:
-            run.error = f"validation still {result.status} after {run.ctx.iteration} iteration(s)"
+        if run.ctx.iteration >= run.spec.last_iteration:
+            attempts = run.ctx.iteration - run.spec.first_iteration + 1
+            run.error = f"validation still {result.status} after {attempts} iteration(s)"
             return State.FAILED
         return State.DEBUG
 
@@ -282,7 +306,10 @@ class JobRunner:
             return State.FAILED
         run.seen.add(fingerprint)
         run.ctx.diff = diff
-        run.patch_id = await self.store.save_patch(run.ctx.iteration, diff, await run.ws.stats())
+        files = {path: run.ws.read(path) for path in _changed_paths(diff)}
+        run.patch_id = await self.store.save_patch(
+            run.ctx.iteration, diff, await run.ws.stats(), files
+        )
         return State.VALIDATE
 
     def _read(self, paths: list[str], ws: Workspace) -> dict[str, str]:

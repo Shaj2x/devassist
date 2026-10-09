@@ -43,6 +43,8 @@ class Settings(ServiceSettings):
     indexer_url: str = "http://localhost:8080"
     sandbox_runner_url: str = "http://localhost:8081"
     sandbox_timeout_seconds: float = Field(default=600.0, gt=0)
+    # Jobs one orchestrator process runs at once (one Kafka consumer each).
+    orchestrator_concurrency: int = Field(default=2, ge=1, le=16)
     work_dir: str = "/tmp/devassist-orchestrator"  # noqa: S108  (per-job subdirs via mkdtemp)
     github_token: str = ""
 
