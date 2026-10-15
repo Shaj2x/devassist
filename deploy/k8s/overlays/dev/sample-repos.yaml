@@ -48,7 +48,7 @@ spec:
       initContainers:
         - name: dind
           # The local registry speaks plain HTTP.
-          args: ["--host=tcp://127.0.0.1:2375", "--tls=false", "--insecure-registry=kind-registry:5000"]
+          args: ["dockerd", "--host=tcp://127.0.0.1:2375", "--tls=false", "--insecure-registry=kind-registry:5000"]
           resources:
             requests: { cpu: 250m, memory: 512Mi }
         - name: sample-repos
