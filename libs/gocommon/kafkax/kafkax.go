@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Shaj2x/devassist/libs/gocommon/events"
@@ -87,23 +88,111 @@ type Consumer struct {
 	cfg     ConsumerConfig
 }
 
-// NewReader builds a consumer-group reader for topic.
-func NewReader(brokers []string, groupID, topic string) *kafka.Reader {
-	return kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        brokers,
-		GroupID:        groupID,
-		Topic:          topic,
+// NewReader returns a consumer-group reader for topic. It joins the group
+// lazily, on the first FetchMessage, and only once the topic exists: a
+// reader that joins before its topic is created (every pod starting at once
+// in Kubernetes while the topic Job is still running) is otherwise assigned
+// no partitions, and kafka-go's partition watcher then rejoins in a tight
+// loop instead of recovering.
+func NewReader(brokers []string, groupID, topic string) Reader {
+	return &lazyReader{brokers: brokers, groupID: groupID, topic: topic}
+}
+
+type lazyReader struct {
+	brokers []string
+	groupID string
+	topic   string
+
+	mu sync.Mutex
+	r  *kafka.Reader
+}
+
+func (l *lazyReader) reader(ctx context.Context) (*kafka.Reader, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.r != nil {
+		return l.r, nil
+	}
+	if err := WaitForTopic(ctx, l.brokers, l.topic, topicPollInterval); err != nil {
+		return nil, err
+	}
+	l.r = kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        l.brokers,
+		GroupID:        l.groupID,
+		Topic:          l.topic,
 		MinBytes:       1,
 		MaxBytes:       10 << 20,
 		MaxWait:        time.Second,
 		CommitInterval: 0, // commit synchronously, only after handling
 		StartOffset:    kafka.FirstOffset,
-		// Rejoin the group when the topic's partitions change. Without this a
-		// reader that starts before its topic exists (every pod starting at
-		// once in Kubernetes) is assigned nothing and never consumes.
+		// Rebalance when partitions are added later. Safe now that the
+		// group is only joined once the topic exists.
 		WatchPartitionChanges:  true,
-		PartitionWatchInterval: 5 * time.Second,
+		PartitionWatchInterval: 30 * time.Second,
 	})
+	return l.r, nil
+}
+
+func (l *lazyReader) FetchMessage(ctx context.Context) (kafka.Message, error) {
+	r, err := l.reader(ctx)
+	if err != nil {
+		return kafka.Message{}, err
+	}
+	return r.FetchMessage(ctx)
+}
+
+func (l *lazyReader) CommitMessages(ctx context.Context, msgs ...kafka.Message) error {
+	l.mu.Lock()
+	r := l.r
+	l.mu.Unlock()
+	if r == nil {
+		return errors.New("commit before any message was fetched")
+	}
+	return r.CommitMessages(ctx, msgs...)
+}
+
+func (l *lazyReader) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.r == nil {
+		return nil
+	}
+	return l.r.Close()
+}
+
+const topicPollInterval = 2 * time.Second
+
+// WaitForTopic blocks until topic exists with at least one partition, or
+// ctx ends. It logs while it waits so a missing topic is visible.
+func WaitForTopic(ctx context.Context, brokers []string, topic string, every time.Duration) error {
+	for attempt := 0; ; attempt++ {
+		if topicExists(ctx, brokers, topic) {
+			return nil
+		}
+		if attempt%15 == 0 {
+			slog.InfoContext(ctx, "waiting for kafka topic", "topic", topic)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(every):
+		}
+	}
+}
+
+func topicExists(ctx context.Context, brokers []string, topic string) bool {
+	for _, b := range brokers {
+		conn, err := kafka.DialContext(ctx, "tcp", b)
+		if err != nil {
+			continue
+		}
+		partitions, err := conn.ReadPartitions(topic)
+		_ = conn.Close()
+		if err == nil && len(partitions) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // NewWriter builds a writer that routes each message to its own Topic field,

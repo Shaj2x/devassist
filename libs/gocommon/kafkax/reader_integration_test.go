@@ -59,11 +59,20 @@ func TestReaderPicksUpTopicCreatedAfterItStarted(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(5 * time.Second) // let the reader join its group with no partitions
+	time.Sleep(5 * time.Second) // the reader is now waiting for the topic
 	createTopic(t, topic)
 	w := &kafka.Writer{Addr: kafka.TCP(brokers()...), Topic: topic, AllowAutoTopicCreation: false}
 	defer w.Close()
-	if err := w.WriteMessages(ctx, kafka.Message{Key: []byte("k"), Value: []byte("hello")}); err != nil {
+	// A new topic needs a moment before its partitions have leaders; a
+	// producer sees "unknown topic" until then.
+	var err error
+	for range 20 {
+		if err = w.WriteMessages(ctx, kafka.Message{Key: []byte("k"), Value: []byte("hello")}); err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 
