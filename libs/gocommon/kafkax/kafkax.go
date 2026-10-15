@@ -17,6 +17,7 @@ import (
 
 	"github.com/Shaj2x/devassist/libs/gocommon/events"
 	"github.com/Shaj2x/devassist/libs/gocommon/logging"
+	"github.com/Shaj2x/devassist/libs/gocommon/metrics"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -151,11 +152,14 @@ func (c *Consumer) process(ctx context.Context, msg kafka.Message) error {
 		return c.deadLetter(ctx, msg, err, 0)
 	}
 	ctx = logging.WithTraceID(ctx, env.Trace())
+	start := time.Now()
+	defer func() { metrics.KafkaHandled(msg.Topic, time.Since(start)) }()
 
 	backoff := c.cfg.InitialBackoff
 	for attempt := 1; ; attempt++ {
 		err := c.handler(ctx, env)
 		if err == nil {
+			metrics.KafkaOutcome(msg.Topic, "processed")
 			return nil
 		}
 		if IsPermanent(err) || attempt >= c.cfg.MaxAttempts {
@@ -163,6 +167,7 @@ func (c *Consumer) process(ctx context.Context, msg kafka.Message) error {
 				"type", env.Type, "event_id", env.EventID, "attempts", attempt, "error", err)
 			return c.deadLetter(ctx, msg, err, attempt)
 		}
+		metrics.KafkaOutcome(msg.Topic, "retried")
 		c.log.WarnContext(ctx, "event handling failed; retrying",
 			"type", env.Type, "event_id", env.EventID, "attempt", attempt, "backoff", backoff.String(), "error", err)
 		select {
@@ -188,6 +193,7 @@ func (c *Consumer) deadLetter(ctx context.Context, msg kafka.Message, cause erro
 	if err := c.dlq.WriteMessages(ctx, dlqMsg); err != nil {
 		return fmt.Errorf("write to dead-letter topic: %w", err)
 	}
+	metrics.KafkaOutcome(msg.Topic, "dead_lettered")
 	return nil
 }
 

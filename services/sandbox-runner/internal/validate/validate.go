@@ -100,6 +100,7 @@ func (v *Validator) Validate(ctx context.Context, req Request) events.Validation
 			res.Error = &errMsg
 		}
 		res.DurationMS = time.Since(started).Milliseconds()
+		observe(res, time.Since(started))
 		v.log.InfoContext(ctx, "validation finished", "patch_id", req.PatchID, "status", status,
 			"tests", res.Tests.Status, "security", res.Security.Status, "static", res.StaticAnalysis.Status,
 			"duration_ms", res.DurationMS)
@@ -107,9 +108,15 @@ func (v *Validator) Validate(ctx context.Context, req Request) events.Validation
 	}
 
 	// Bound concurrent sandboxes across Kafka consumers and HTTP callers.
+	waitStart := time.Now()
 	select {
 	case v.sem <- struct{}{}:
-		defer func() { <-v.sem }()
+		slotWait.Observe(time.Since(waitStart).Seconds())
+		active.Inc()
+		defer func() {
+			active.Dec()
+			<-v.sem
+		}()
 	case <-ctx.Done():
 		return finish(events.CheckError, "cancelled while waiting for a sandbox slot")
 	}

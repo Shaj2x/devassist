@@ -23,6 +23,8 @@ type Config struct {
 	WorkDir        string
 	GitHubToken    string
 	ResultCacheTTL time.Duration
+	// PullImages: pull sandbox images the daemon lacks (Kubernetes).
+	PullImages bool
 }
 
 func Load() (Config, error) {
@@ -41,6 +43,7 @@ func Load() (Config, error) {
 		WorkDir:       base.String("SANDBOX_WORK_DIR", "/tmp/devassist-sandbox"),
 		GitHubToken:   base.String("GITHUB_TOKEN", ""),
 	}
+	cfg.PullImages = base.String("SANDBOX_PULL_IMAGES", "false") == "true"
 	if base.String("SANDBOX_INSTALL_NETWORK", "true") == "false" {
 		cfg.EgressNetwork = ""
 	}

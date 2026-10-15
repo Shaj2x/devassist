@@ -95,6 +95,12 @@ func New(st *store.Store, e embed.Embedder, locker lock.Client, opts Options, lo
 // snapshot is marked failed and Result.Snapshot is still populated, so the
 // caller can report it.
 func (p *Pipeline) Index(ctx context.Context, req Request) (Result, error) {
+	res, err := p.index(ctx, req)
+	observe(res, err)
+	return res, err
+}
+
+func (p *Pipeline) index(ctx context.Context, req Request) (Result, error) {
 	started := time.Now()
 
 	l, err := lock.Acquire(ctx, p.locker, "index:repo:"+req.RepoID, p.opts.LockTTL)

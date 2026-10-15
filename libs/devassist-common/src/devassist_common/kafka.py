@@ -17,9 +17,9 @@ import contextlib
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, ConsumerRebalanceListener
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +27,7 @@ from devassist_common.db import ProcessedEvent
 from devassist_common.events import Envelope, EventType, dlq_topic, new_event
 from devassist_common.events import _Payload as Payload
 from devassist_common.logging import trace_context
+from devassist_common.metrics import KAFKA_HANDLER, KAFKA_MESSAGES
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +91,7 @@ class EventConsumer:
         initial_backoff: float = 1.0,
         max_backoff: float = 30.0,
         max_poll_interval_ms: int = 30 * 60 * 1000,
+        start_from: Literal["earliest", "latest"] = "earliest",
     ) -> None:
         self.bootstrap_servers, self.group_id = bootstrap_servers, group_id
         self.topics = [t.value for t in topics]
@@ -102,17 +104,22 @@ class EventConsumer:
         # Handlers may run for minutes (a whole agent job); Kafka must not
         # assume the consumer died while one is running.
         self.max_poll_interval_ms = max_poll_interval_ms
+        # Where a brand-new consumer group starts. Durable groups use
+        # "earliest" so nothing published before their first run is lost.
+        self.start_from = start_from
+        # Set once partitions are assigned and their start positions fixed.
+        self.ready = asyncio.Event()
 
     async def run(self, stop: asyncio.Event) -> None:
         consumer = AIOKafkaConsumer(
-            *self.topics,
             bootstrap_servers=self.bootstrap_servers,
             group_id=self.group_id,
             enable_auto_commit=False,
-            auto_offset_reset="earliest",
+            auto_offset_reset=self.start_from,
             max_poll_interval_ms=self.max_poll_interval_ms,
             max_poll_records=1,
         )
+        consumer.subscribe(self.topics, listener=_Ready(consumer, self.ready))
         await consumer.start()
         log.info("consumer started", extra={"group": self.group_id, "topics": self.topics})
         try:
@@ -144,11 +151,12 @@ class EventConsumer:
             )
             await self._dead_letter(topic, value, key, offset, e, attempts=0)
             return
-        with trace_context(env.trace_id):
+        with trace_context(env.trace_id), KAFKA_HANDLER.labels(topic).time():
             backoff = self.initial_backoff
             for attempt in range(1, self.max_attempts + 1):
                 try:
                     await self.handler(env)
+                    KAFKA_MESSAGES.labels(topic, "processed").inc()
                     return
                 except PermanentError as e:
                     log.error(
@@ -173,6 +181,7 @@ class EventConsumer:
                             "error": str(e),
                         },
                     )
+                    KAFKA_MESSAGES.labels(topic, "retried").inc()
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, self.max_backoff)
 
@@ -192,6 +201,24 @@ class EventConsumer:
             ("x-original-offset", str(offset).encode()),
         ]
         await self.dlq.send_and_wait(dlq_topic(topic), value=value, key=key, headers=headers)
+        KAFKA_MESSAGES.labels(topic, "dead_lettered").inc()
+
+
+class _Ready(ConsumerRebalanceListener):  # type: ignore[misc]
+    """Resolves each assigned partition's start offset, then signals ready.
+    Resolving eagerly matters for "latest": the position is fixed now, not
+    whenever the first fetch happens to run."""
+
+    def __init__(self, consumer: AIOKafkaConsumer, ready: asyncio.Event) -> None:
+        self.consumer, self.ready = consumer, ready
+
+    async def on_partitions_revoked(self, revoked: Any) -> None:
+        return None
+
+    async def on_partitions_assigned(self, assigned: Any) -> None:
+        for tp in assigned:
+            await self.consumer.position(tp)
+        self.ready.set()
 
 
 async def claim_event(session: AsyncSession, consumer: str, env: Envelope) -> bool:

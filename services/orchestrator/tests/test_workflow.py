@@ -21,6 +21,7 @@ from devassist_orchestrator.workflow import (
     _related_tests,
     render_validation,
 )
+from prometheus_client import REGISTRY
 
 FIXED = "def add(a, b):\n    return a + b\n"
 WRONG = "def add(a, b):\n    return a * b\n"
@@ -135,6 +136,24 @@ async def test_passes_first_time(
     ]
     assert len(store.patches) == 1 and store.review == REVIEW and store.plan == PLAN
     assert "tests/test_math.py" in store.patches[0]["diff"]
+
+
+async def test_run_records_job_and_agent_metrics(
+    repo_url: str, tmp_path: Path, store: Any, make_validation: Any
+) -> None:
+    def value(name: str, labels: dict[str, str] | None = None) -> float:
+        return REGISTRY.get_sample_value(name, labels or {}) or 0.0
+
+    jobs = value("jobs_finished_total", {"outcome": "awaiting_review"})
+    coder = value("agent_steps_total", {"agent": "coder", "outcome": "succeeded"})
+    iterations = value("job_iterations_count")
+
+    sandbox = ScriptedSandbox(make_validation)
+    await runner(MockProvider(script(FIXED, [])), store, sandbox, tmp_path).run(spec(repo_url))
+
+    assert value("jobs_finished_total", {"outcome": "awaiting_review"}) == jobs + 1
+    assert value("agent_steps_total", {"agent": "coder", "outcome": "succeeded"}) == coder + 1
+    assert value("job_iterations_count") == iterations + 1
 
 
 async def test_debug_loop_recovers(

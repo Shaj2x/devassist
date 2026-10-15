@@ -27,6 +27,7 @@ import (
 	"github.com/Shaj2x/devassist/libs/gocommon/httpserver"
 	"github.com/Shaj2x/devassist/libs/gocommon/kafkax"
 	"github.com/Shaj2x/devassist/libs/gocommon/logging"
+	"github.com/Shaj2x/devassist/libs/gocommon/metrics"
 	rconfig "github.com/Shaj2x/devassist/services/sandbox-runner/internal/config"
 	"github.com/Shaj2x/devassist/services/sandbox-runner/internal/consumer"
 	"github.com/Shaj2x/devassist/services/sandbox-runner/internal/httpapi"
@@ -75,6 +76,7 @@ func newValidator(ctx context.Context, cfg rconfig.Config, log *slog.Logger) (*v
 	if err != nil {
 		return nil, nil, err
 	}
+	docker.PullMissing = cfg.PullImages
 	if err := docker.Ping(ctx); err != nil {
 		_ = docker.Close()
 		return nil, nil, fmt.Errorf("docker daemon unreachable: %w", err)
@@ -119,6 +121,7 @@ func serve(ctx context.Context) error {
 		cfg.ResultCacheTTL, cfg.Timeout+time.Minute, log)
 
 	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", metrics.Handler())
 	health.Register(mux, map[string]health.Check{
 		"redis":  health.Redis(rdb),
 		"kafka":  health.Kafka(cfg.KafkaBrokers, []string{string(events.PatchGenerated), string(events.ValidationCompleted)}),
@@ -131,7 +134,7 @@ func serve(ctx context.Context) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return httpserver.Run(ctx, log, ":"+strconv.Itoa(cfg.Port), mux, cfg.ShutdownGracePeriod)
+		return httpserver.Run(ctx, log, ":"+strconv.Itoa(cfg.Port), metrics.Instrument(mux), cfg.ShutdownGracePeriod)
 	})
 	// One consumer per concurrency slot; partitions are spread across them.
 	for i := range cfg.Concurrency {

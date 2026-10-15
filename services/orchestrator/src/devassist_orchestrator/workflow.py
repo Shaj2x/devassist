@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
@@ -42,6 +43,7 @@ from devassist_orchestrator.agents import (
 )
 from devassist_orchestrator.agents.outputs import Plan
 from devassist_orchestrator.llm import LLMError, LLMProvider
+from devassist_orchestrator.metrics import JOB_DURATION, JOB_ITERATIONS, JOBS
 from devassist_orchestrator.tools.retrieval import CodeHit, Retriever
 from devassist_orchestrator.tools.sandbox import ValidationRequest, Validator
 from devassist_orchestrator.tools.workspace import (
@@ -155,6 +157,15 @@ class JobRunner:
         self.max_file_chars, self.github_token = max_file_chars, github_token
 
     async def run(self, spec: JobSpec) -> Outcome:
+        started = time.monotonic()
+        outcome = await self._run(spec)
+        JOBS.labels(outcome.status).inc()
+        JOB_DURATION.observe(time.monotonic() - started)
+        if outcome.iterations:
+            JOB_ITERATIONS.observe(outcome.iterations)
+        return outcome
+
+    async def _run(self, spec: JobSpec) -> Outcome:
         with trace_context(spec.job_id):
             try:
                 ws = await Workspace.checkout(

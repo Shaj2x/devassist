@@ -16,6 +16,7 @@ import uvicorn
 from devassist_common.db.session import create_engine
 from devassist_common.health import check_kafka, check_postgres, check_redis, run_checks
 from devassist_common.logging import configure_logging
+from devassist_common.metrics import instrument
 from fastapi import FastAPI, Response, status
 from redis.asyncio import Redis
 
@@ -43,6 +44,7 @@ def create_health_app(settings: Settings, worker: Worker) -> FastAPI:
 
     app = FastAPI(title="DevAssist Orchestrator", lifespan=lifespan)
     app.state.readiness_checks = {}
+    instrument(app)
 
     @app.get("/healthz")
     async def healthz(response: Response) -> dict[str, str]:

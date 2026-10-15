@@ -16,6 +16,7 @@ import (
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -24,6 +25,10 @@ import (
 // Docker creates sandboxes through the Docker Engine API.
 type Docker struct {
 	cli *client.Client
+	// PullMissing pulls a sandbox image the daemon does not have yet. Off
+	// under docker-compose (images are built locally); on in Kubernetes,
+	// where the runner's Docker daemon starts empty.
+	PullMissing bool
 }
 
 // NewDocker connects using DOCKER_HOST (default: the local socket) and
@@ -66,13 +71,29 @@ func (d *Docker) EnsureNetwork(ctx context.Context, name string) error {
 	return err
 }
 
-// ImageExists reports whether the sandbox image is available locally.
-func (d *Docker) ImageExists(ctx context.Context, image string) (bool, error) {
-	_, err := d.cli.ImageInspect(ctx, image)
-	if cerrdefs.IsNotFound(err) {
+// ImageExists reports whether the sandbox image is available locally,
+// pulling it first when PullMissing is set.
+func (d *Docker) ImageExists(ctx context.Context, img string) (bool, error) {
+	_, err := d.cli.ImageInspect(ctx, img)
+	if err == nil {
+		return true, nil
+	}
+	if !cerrdefs.IsNotFound(err) {
+		return false, err
+	}
+	if !d.PullMissing {
 		return false, nil
 	}
-	return err == nil, err
+	rc, err := d.cli.ImagePull(ctx, img, image.PullOptions{})
+	if err != nil {
+		return false, fmt.Errorf("pull %s: %w", img, err)
+	}
+	defer rc.Close()
+	// The pull finishes when its progress stream ends.
+	if _, err := io.Copy(io.Discard, rc); err != nil {
+		return false, fmt.Errorf("pull %s: %w", img, err)
+	}
+	return true, nil
 }
 
 // Container is one running sandbox.

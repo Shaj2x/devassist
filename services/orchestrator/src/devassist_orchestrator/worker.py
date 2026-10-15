@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import Coroutine
+from typing import Any
 
 from devassist_common.db import Job, JobStatus
 from devassist_common.db.session import create_engine, create_session_factory
@@ -76,11 +78,19 @@ class Worker:
             [EventType.VALIDATION_COMPLETED],
             self.handle_validation_completed,
             publisher.producer,
+            # The group is new on every start, and only results for patches
+            # this process is waiting on matter: never replay the history.
+            start_from="latest",
         )
-        self.running = True
-        log.info("worker started", extra={"concurrency": s.orchestrator_concurrency})
+        log.info("worker starting", extra={"concurrency": s.orchestrator_concurrency})
         try:
-            await asyncio.gather(*(c.run(stop) for c in [*consumers, results]))
+            # Listen for results before taking jobs, so no result for a patch
+            # this process validates can arrive before the listener is in place.
+            results_task = asyncio.create_task(results.run(stop))
+            await _first(results.ready.wait(), results_task, within=120)
+            self.running = True
+            log.info("worker started")
+            await asyncio.gather(results_task, *(c.run(stop) for c in consumers))
         finally:
             self.running = False
             await publisher.stop()
@@ -128,3 +138,19 @@ class Worker:
         key = result_key(str(result.patch_id))
         await self.redis.rpush(key, result.model_dump_json())
         await self.redis.expire(key, RESULT_TTL_SECONDS)
+
+
+async def _first(
+    ready: Coroutine[Any, Any, Any], task: asyncio.Task[None], *, within: float
+) -> None:
+    """Wait for `ready`, but fail fast if `task` dies first."""
+    waiter = asyncio.ensure_future(ready)
+    done, _ = await asyncio.wait(
+        {waiter, task}, timeout=within, return_when=asyncio.FIRST_COMPLETED
+    )
+    if waiter in done:
+        return
+    waiter.cancel()
+    if task in done:
+        task.result()  # re-raise the consumer's error
+    raise TimeoutError(f"validation results consumer not ready after {within}s")

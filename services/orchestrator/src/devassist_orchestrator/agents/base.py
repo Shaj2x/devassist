@@ -22,6 +22,7 @@ from pydantic import BaseModel, ValidationError
 from devassist_orchestrator.llm import LLMError, LLMProvider, LLMRequest, LLMResponse, Message
 from devassist_orchestrator.llm.base import Effort
 from devassist_orchestrator.llm.schema import strict_schema
+from devassist_orchestrator.metrics import AGENT_STEPS, record_usage
 
 log = logging.getLogger(__name__)
 
@@ -94,11 +95,14 @@ class Agent(Generic[T]):
             try:
                 response = await llm.complete(request)
             except LLMError as e:
+                AGENT_STEPS.labels(self.name.value, "llm_error").inc()
                 await recorder.finish_step(step_id, response=None, parsed=None, error=str(e))
                 raise
+            record_usage(self.name.value, response)
             try:
                 result = self.output.model_validate(response.data)
             except ValidationError as e:
+                AGENT_STEPS.labels(self.name.value, "invalid_output").inc()
                 await recorder.finish_step(
                     step_id, response=response, parsed=None, error=f"invalid output: {e}"
                 )
@@ -111,6 +115,7 @@ class Agent(Generic[T]):
                     Message("user", f"That output failed validation:\n{e}\nReturn corrected JSON."),
                 ]
                 continue
+            AGENT_STEPS.labels(self.name.value, "succeeded").inc()
             await recorder.finish_step(
                 step_id, response=response, parsed=result.model_dump(), error=None
             )

@@ -15,7 +15,10 @@ RUN npm run build
 # nginx serves the static build and proxies /api to the FastAPI service,
 # so the browser only ever talks to one origin.
 FROM nginxinc/nginx-unprivileged:1.27-alpine
-COPY dashboard/nginx.conf /etc/nginx/conf.d/default.conf
+# The entrypoint renders templates/*.template into conf.d with envsubst.
+COPY dashboard/nginx.conf.template /etc/nginx/templates/default.conf.template
+ENV API_UPSTREAM=http://api:8000 \
+    NGINX_RESOLVER=127.0.0.11
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1

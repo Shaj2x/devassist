@@ -26,6 +26,7 @@ import (
 	"github.com/Shaj2x/devassist/libs/gocommon/httpserver"
 	"github.com/Shaj2x/devassist/libs/gocommon/kafkax"
 	"github.com/Shaj2x/devassist/libs/gocommon/logging"
+	"github.com/Shaj2x/devassist/libs/gocommon/metrics"
 	idxconfig "github.com/Shaj2x/devassist/services/indexer/internal/config"
 	"github.com/Shaj2x/devassist/services/indexer/internal/consumer"
 	"github.com/Shaj2x/devassist/services/indexer/internal/embed"
@@ -155,6 +156,7 @@ func serve(ctx context.Context) error {
 	cons := kafkax.NewConsumer(reader, writer, handler.Handle, d.log, kafkax.ConsumerConfig{MaxAttempts: 6})
 
 	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", metrics.Handler())
 	health.Register(mux, map[string]health.Check{
 		"postgres": health.Postgres(d.store.Pool()),
 		"redis":    health.Redis(d.redis),
@@ -165,7 +167,7 @@ func serve(ctx context.Context) error {
 	d.log.InfoContext(ctx, "starting", "port", d.cfg.Port, "embedding_model", d.embedder.Model())
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return httpserver.Run(ctx, d.log, ":"+strconv.Itoa(d.cfg.Port), mux, d.cfg.ShutdownGracePeriod)
+		return httpserver.Run(ctx, d.log, ":"+strconv.Itoa(d.cfg.Port), metrics.Instrument(mux), d.cfg.ShutdownGracePeriod)
 	})
 	g.Go(func() error { return cons.Run(ctx) })
 	return g.Wait()

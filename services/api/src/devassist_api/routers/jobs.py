@@ -52,6 +52,7 @@ from devassist_api.deps import (
     UserDep,
 )
 from devassist_api.github import GitHubError
+from devassist_api.metrics import JOBS_CREATED, PULL_REQUESTS, REVIEW_DECISIONS
 from devassist_api.pr import pull_request_body, pull_request_title
 from devassist_api.routers.repos import get_owned_repo, is_github_repo
 from devassist_api.schemas import (
@@ -225,6 +226,7 @@ async def create_job(
     db.add(job)
     await db.commit()
     await publish_job(publisher, job)
+    JOBS_CREATED.inc()
     log.info("job created", extra={"job_id": str(job.id), "repo": repo.full_name})
     job = await get_owned_job(db, user, job.id)
     return summary(job)
@@ -377,6 +379,7 @@ async def approve_job(
     await transition(db, job, {JobStatus.AWAITING_REVIEW}, JobStatus.APPROVED)
     await db.execute(update(Patch).where(Patch.id == patch.id).values(status=PatchStatus.APPROVED))
     await db.commit()
+    REVIEW_DECISIONS.labels("approve").inc()
     if not to_github:
         # Local and sample repositories have nowhere to open a PR.
         return await reload(db, redis, user, job_id, settings)
@@ -395,6 +398,7 @@ async def approve_job(
                 files=patch.files,
             )
     except GitHubError as e:
+        PULL_REQUESTS.labels("failed").inc()
         # Undo the approval so the reviewer can retry.
         await db.execute(
             update(Job)
@@ -423,6 +427,7 @@ async def approve_job(
         .values(status=JobStatus.PR_OPENED, error=None, completed_at=datetime.now(UTC))
     )
     await db.commit()
+    PULL_REQUESTS.labels("opened").inc()
     log.info("pull request opened", extra={"job_id": str(job.id), "url": pr.url})
     return await reload(db, redis, user, job_id, settings)
 
@@ -451,6 +456,7 @@ async def reject_job(
         .values(status=PatchStatus.REJECTED)
     )
     await db.commit()
+    REVIEW_DECISIONS.labels("reject").inc()
     return await reload(db, redis, user, job_id, settings)
 
 
@@ -478,4 +484,5 @@ async def request_changes(
     )
     await db.commit()
     await publish_job(publisher, job)
+    REVIEW_DECISIONS.labels("request_changes").inc()
     return await reload(db, redis, user, job_id, settings)

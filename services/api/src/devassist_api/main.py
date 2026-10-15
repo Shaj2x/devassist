@@ -17,6 +17,7 @@ from devassist_common.db.session import create_engine, create_session_factory
 from devassist_common.health import check_kafka, check_postgres, check_redis
 from devassist_common.kafka import EventPublisher
 from devassist_common.logging import configure_logging
+from devassist_common.metrics import instrument
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
@@ -78,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.readiness_checks = {}
     app.state.github_factory = lambda token: GitHubClient(token, base_url=settings.github_api_url)
+    instrument(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
