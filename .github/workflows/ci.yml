@@ -52,6 +52,9 @@ jobs:
         with:
           version: v2.5.0
           working-directory: ${{ matrix.module }}
+          # Config verification downloads a JSON schema from golangci-lint.run
+          # on every run; the config is checked locally by `make lint`.
+          verify: false
           args: --config ${{ github.workspace }}/.golangci.yml
       - run: go test -race ./...
 
