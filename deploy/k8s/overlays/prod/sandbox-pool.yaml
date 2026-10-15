@@ -1,0 +1,26 @@
+# Sandboxes run untrusted code, so their pods get nodes of their own:
+#   kubectl label node <n> devassist.io/pool=sandbox
+#   kubectl taint node <n> devassist.io/pool=sandbox:NoSchedule
+# A container breakout then lands on a node that runs nothing else and holds
+# no other workload's secrets. For VM-level isolation, also set
+# runtimeClassName to a Kata Containers RuntimeClass (gVisor cannot run the
+# privileged Docker-in-Docker sidecar).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-runner
+spec:
+  template:
+    spec:
+      nodeSelector:
+        devassist.io/pool: sandbox
+      tolerations:
+        - { key: devassist.io/pool, operator: Equal, value: sandbox, effect: NoSchedule }
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: { app.kubernetes.io/name: sandbox-runner }

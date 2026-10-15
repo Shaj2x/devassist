@@ -1,0 +1,63 @@
+# The bundled sample repos (file:///sample-repos/datekit.git) in every pod
+# that clones repositories, copied from the devassist/sample-repos image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: sample-repos
+          image: devassist/sample-repos
+          command: ["cp", "-R", "/sample-repos/.", "/mnt/sample-repos/"]
+          volumeMounts: [{ name: sample-repos, mountPath: /mnt/sample-repos }]
+          securityContext: { runAsUser: 10001, allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } }
+      containers:
+        - name: indexer
+          env: [{ name: GIT_CONFIG_GLOBAL, value: /sample-repos/gitconfig }]
+          volumeMounts: [{ name: sample-repos, mountPath: /sample-repos, readOnly: true }]
+      volumes: [{ name: sample-repos, emptyDir: {} }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: sample-repos
+          image: devassist/sample-repos
+          command: ["cp", "-R", "/sample-repos/.", "/mnt/sample-repos/"]
+          volumeMounts: [{ name: sample-repos, mountPath: /mnt/sample-repos }]
+          securityContext: { runAsUser: 10001, allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } }
+      containers:
+        - name: orchestrator
+          env: [{ name: GIT_CONFIG_GLOBAL, value: /sample-repos/gitconfig }]
+          volumeMounts: [{ name: sample-repos, mountPath: /sample-repos, readOnly: true }]
+      volumes: [{ name: sample-repos, emptyDir: {} }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-runner
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: dind
+          # The local registry speaks plain HTTP.
+          args: ["--host=tcp://127.0.0.1:2375", "--tls=false", "--insecure-registry=kind-registry:5000"]
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+        - name: sample-repos
+          image: devassist/sample-repos
+          command: ["cp", "-R", "/sample-repos/.", "/mnt/sample-repos/"]
+          volumeMounts: [{ name: sample-repos, mountPath: /mnt/sample-repos }]
+          securityContext: { runAsUser: 10001, allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } }
+      containers:
+        - name: runner
+          env: [{ name: GIT_CONFIG_GLOBAL, value: /sample-repos/gitconfig }]
+          volumeMounts: [{ name: sample-repos, mountPath: /sample-repos, readOnly: true }]
+      volumes: [{ name: sample-repos, emptyDir: {} }]

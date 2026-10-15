@@ -1,0 +1,102 @@
+# Validates patches in throwaway containers.
+#
+# The runner talks to a Docker daemon in a sidecar (Docker-in-Docker) rather
+# than the node's runtime: sandboxes then live and die with this pod, can
+# never see other workloads' containers, and the node's container socket is
+# never mounted. The sidecar must be privileged to nest containers; the
+# untrusted patch code runs one level further down, in sandboxes with no
+# network, no capabilities, a read-only root and hard limits (docs/sandbox.md).
+#
+# Production hardening (overlays/prod): a dedicated, tainted node pool so a
+# breakout lands on a node that runs nothing else, and optionally a
+# RuntimeClass such as gVisor or Kata for the pod.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-runner
+  labels: { app.kubernetes.io/name: sandbox-runner }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: sandbox-runner }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: sandbox-runner }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: /metrics
+    spec:
+      terminationGracePeriodSeconds: 330  # longer than SANDBOX_TIMEOUT
+      automountServiceAccountToken: false
+      initContainers:
+        # Native sidecar (restartPolicy: Always): starts first, is ready
+        # before the runner starts, and stops after it.
+        - name: dind
+          image: docker:27.5-dind
+          restartPolicy: Always
+          args: ["--host=tcp://127.0.0.1:2375", "--tls=false"]
+          env:
+            - { name: DOCKER_TLS_CERTDIR, value: "" }
+          securityContext:
+            privileged: true
+          startupProbe:
+            exec: { command: ["docker", "-H", "tcp://127.0.0.1:2375", "info"] }
+            periodSeconds: 2
+            failureThreshold: 60
+          resources:
+            # Sized for SANDBOX_CONCURRENCY=2 sandboxes of 1 CPU / 1g each.
+            requests: { cpu: "1", memory: 2Gi }
+            limits: { memory: 3Gi }
+          volumeMounts:
+            - { name: docker-data, mountPath: /var/lib/docker }
+      containers:
+        - name: runner
+          image: devassist/sandbox-runner
+          args: ["serve"]
+          ports:
+            - { name: http, containerPort: 8081 }
+          envFrom:
+            - configMapRef: { name: devassist-config }
+          env:
+            - { name: PORT, value: "8081" }
+            - { name: DOCKER_HOST, value: tcp://127.0.0.1:2375 }
+            - name: REDIS_URL
+              valueFrom: { secretKeyRef: { name: devassist-secrets, key: REDIS_URL } }
+            - name: GITHUB_TOKEN
+              valueFrom: { secretKeyRef: { name: devassist-secrets, key: GITHUB_TOKEN, optional: true } }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: docker-data  # sandbox images and containers; gone with the pod
+          emptyDir: { sizeLimit: 20Gi }
+        - name: tmp  # host-side checkouts before they are streamed in
+          emptyDir: { sizeLimit: 2Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox-runner
+  labels: { app.kubernetes.io/name: sandbox-runner }
+spec:
+  selector: { app.kubernetes.io/name: sandbox-runner }
+  ports:
+    - { name: http, port: 8081, targetPort: http }

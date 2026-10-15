@@ -1,0 +1,33 @@
+# One replica of everything on a laptop-sized cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: api }
+spec: { replicas: 1 }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: api }
+spec: { minReplicas: 1, maxReplicas: 2 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: indexer }
+spec: { replicas: 1 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: dashboard }
+spec: { replicas: 1 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: devassist }
+spec:
+  rules:
+    - host: devassist.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: dashboard, port: { name: http } }

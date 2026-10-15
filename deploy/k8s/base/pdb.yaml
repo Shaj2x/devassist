@@ -1,0 +1,27 @@
+# Keep the user-facing tier up through node drains and upgrades.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: api }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dashboard
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: dashboard }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: indexer
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: indexer }

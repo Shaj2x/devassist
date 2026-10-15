@@ -76,10 +76,13 @@ The runner creates sandboxes through the Docker API, and access to the Docker
 socket is root-equivalent on that host. That is acceptable because the
 **runner** is our code; the **untrusted** code only ever runs in the
 sandboxes it creates, under the restrictions above. In docker-compose the
-socket is mounted into the runner. In production you would put the runner
-on dedicated nodes, or use a stronger runtime for the sandboxes themselves
-(gVisor's `runsc` or Kata Containers, which need no code changes here, only a
-`--runtime` flag on the sandbox containers).
+socket is mounted into the runner. In Kubernetes each runner pod has its own
+Docker-in-Docker sidecar instead, so sandboxes never share a daemon with
+other workloads and the node's socket is never mounted; the prod overlay
+also pins runner pods to a dedicated, tainted node pool. A stronger runtime
+for the sandboxes themselves (gVisor's `runsc`, Kata Containers) needs no code
+changes here, only a `--runtime` flag on the sandbox containers. See
+[operations](operations.md#kubernetes).
 
 ### Why dependency installation gets network
 

@@ -1,0 +1,11 @@
+# In-cluster Postgres (pgvector), Redis and single-node Kafka (KRaft) for
+# development and demos. Production uses managed services instead (RDS or
+# Cloud SQL with pgvector, ElastiCache/Memorystore, MSK/Confluent) and only
+# points DATABASE_URL, REDIS_URL and KAFKA_BOOTSTRAP_SERVERS at them.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - postgres.yaml
+  - redis.yaml
+  - kafka.yaml
+  - networkpolicy.yaml

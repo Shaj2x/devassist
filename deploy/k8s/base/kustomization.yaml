@@ -1,0 +1,23 @@
+# DevAssist application tier. Works against any Postgres (with pgvector),
+# Redis and Kafka: the overlays decide where those come from.
+#   overlays/dev  - in-cluster infra (components/infra), mock LLM, kind/minikube
+#   overlays/prod - managed infra via secrets, GHCR images, autoscaling
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: devassist
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: devassist
+    includeSelectors: false
+resources:
+  - namespace.yaml
+  - config.yaml
+  - migrate.yaml
+  - api.yaml
+  - orchestrator.yaml
+  - indexer.yaml
+  - sandbox-runner.yaml
+  - dashboard.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+  - pdb.yaml

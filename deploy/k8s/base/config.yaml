@@ -1,0 +1,34 @@
+# Non-secret settings shared by the services. Secrets (database URL, API
+# keys, tokens) live in the `devassist-secrets` Secret, which each service
+# reads key by key so no pod sees credentials it does not use.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devassist-config
+data:
+  DEVASSIST_ENV: production
+  LOG_LEVEL: INFO
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_CONSUMER_GROUP_PREFIX: devassist
+  INDEXER_URL: http://indexer:8080
+  SANDBOX_RUNNER_URL: http://sandbox-runner:8081
+  # api
+  AUTH_MODE: token
+  GITHUB_API_URL: https://api.github.com
+  # orchestrator
+  LLM_PROVIDER: anthropic
+  LLM_TIMEOUT_SECONDS: "180"
+  LLM_MAX_RETRIES: "3"
+  MAX_ITERATIONS: "3"
+  DEFAULT_MAX_ITERATIONS: "3"
+  JOB_BUDGET_USD: "2.0"
+  ORCHESTRATOR_CONCURRENCY: "2"
+  # indexer
+  EMBEDDING_PROVIDER: local
+  # sandbox-runner
+  SANDBOX_CONCURRENCY: "2"
+  SANDBOX_MEMORY: 1g
+  SANDBOX_CPUS: "1"
+  SANDBOX_TIMEOUT: 5m
+  SANDBOX_INSTALL_NETWORK: "true"
+  SANDBOX_PULL_IMAGES: "true"

@@ -1,0 +1,35 @@
+# Local cluster (kind) with everything in it: infra, mock LLM, sample repos.
+#   make k8s-dev    # creates the kind cluster + registry, loads images, applies this
+# App images are the ones `make up` builds (devassist/*:dev), loaded into
+# kind. Sandbox images are pulled by the runner's Docker daemon from the
+# local registry the script starts (kind-registry:5000).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: devassist
+resources:
+  - ../../base
+components:
+  - ../../components/infra
+images:
+  - { name: devassist/api, newTag: dev }
+  - { name: devassist/orchestrator, newTag: dev }
+  - { name: devassist/indexer, newTag: dev }
+  - { name: devassist/sandbox-runner, newTag: dev }
+  - { name: devassist/dashboard, newTag: dev }
+  - { name: devassist/sample-repos, newTag: dev }
+secretGenerator:
+  # Dev-only values; API keys are optional and come from secrets.env
+  # (copied from secrets.env.example by `make k8s-dev`, gitignored).
+  - name: devassist-secrets
+    envs: [secrets.env]
+    literals:
+      - POSTGRES_PASSWORD=devassist
+      - DATABASE_URL=postgresql://devassist:devassist@postgres:5432/devassist
+      - REDIS_URL=redis://redis:6379/0
+      - TOKEN_ENCRYPTION_KEY=
+generatorOptions:
+  disableNameSuffixHash: true
+patches:
+  - path: config.yaml
+  - path: sample-repos.yaml
+  - path: small.yaml

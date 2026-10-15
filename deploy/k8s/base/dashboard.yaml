@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  labels: { app.kubernetes.io/name: dashboard }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: dashboard }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: dashboard }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: dashboard
+          image: devassist/dashboard
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            # nginx proxies /api to the api Service; see dashboard/nginx.conf.template.
+            - { name: API_UPSTREAM, value: "http://api.devassist.svc.cluster.local:8000" }
+            - { name: NGINX_RESOLVER, value: kube-dns.kube-system.svc.cluster.local }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  labels: { app.kubernetes.io/name: dashboard }
+spec:
+  selector: { app.kubernetes.io/name: dashboard }
+  ports:
+    - { name: http, port: 80, targetPort: http }

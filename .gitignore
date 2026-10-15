@@ -39,3 +39,6 @@ deploy/certs/*.crt
 /services/indexer/indexer
 /services/sandbox-runner/sandbox-runner
 /services/sandbox-runner/images/*/deploy-certs/
+
+# Kubernetes dev overlay secrets
+deploy/k8s/overlays/dev/secrets.env

@@ -1,0 +1,20 @@
+# One host: the dashboard serves the SPA and proxies /api to the api, so the
+# browser only ever talks to one origin (no CORS). Overlays set the host/TLS.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devassist
+  annotations:
+    # Server-sent events: no buffering, long reads.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: devassist.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: dashboard, port: { name: http } }

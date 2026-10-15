@@ -1,0 +1,86 @@
+# Default deny for inbound traffic in the namespace, then one rule per
+# service listing exactly who may call it. Egress is left open: the
+# services call GitHub and model APIs, and the sandbox runner needs egress
+# for dependency installs (the sandboxes themselves get no network for
+# running patched code; that is enforced inside the runner).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dashboard-from-ingress
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: dashboard }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-from-dashboard
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: api }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: dashboard }
+      ports: [{ port: 8000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: indexer-from-orchestrator
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: indexer }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: orchestrator }
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sandbox-runner-from-orchestrator
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: sandbox-runner }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: orchestrator }
+      ports: [{ port: 8081 }]
+---
+# Prometheus (in the `monitoring` namespace) may scrape every service.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-from-monitoring
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [api, orchestrator, indexer, sandbox-runner]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: monitoring }
+      ports: [{ port: 8000 }, { port: 8001 }, { port: 8080 }, { port: 8081 }]

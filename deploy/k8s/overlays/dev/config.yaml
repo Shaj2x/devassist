@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devassist-config
+data:
+  DEVASSIST_ENV: development
+  AUTH_MODE: dev
+  LLM_PROVIDER: mock
+  LLM_MOCK_SCRIPT: datekit_fix_leap_year
+  ORCHESTRATOR_CONCURRENCY: "1"
+  SANDBOX_IMAGE_PYTHON: kind-registry:5000/devassist/sandbox-python:latest
+  SANDBOX_IMAGE_GO: kind-registry:5000/devassist/sandbox-go:latest
+  SANDBOX_IMAGE_NODE: kind-registry:5000/devassist/sandbox-node:latest

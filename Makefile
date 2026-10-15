@@ -98,6 +98,25 @@ demo-run: ## Run the agent loop on datekit (mock LLM unless LLM_PROVIDER is set)
 demo-api: ## The whole flow through the REST API and Kafka: make demo-api task="..."
 	@scripts/demo-api.sh "$(task)"
 
+.PHONY: k8s-validate
+k8s-validate: ## Render every Kustomize overlay and validate it against the Kubernetes schemas
+	@for o in base overlays/dev overlays/prod; do \
+	  echo "==> deploy/k8s/$$o"; \
+	  [ "$$o" != overlays/dev ] || [ -f deploy/k8s/overlays/dev/secrets.env ] || cp deploy/k8s/overlays/dev/secrets.env.example deploy/k8s/overlays/dev/secrets.env; \
+	  kubectl kustomize deploy/k8s/$$o | kubeconform -strict -summary -kubernetes-version 1.33.0 \
+	    -schema-location default \
+	    -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+	    || exit 1; \
+	done
+
+.PHONY: k8s-dev
+k8s-dev: ## Run the whole platform on a local kind cluster (dev overlay)
+	scripts/k8s-dev.sh up
+
+.PHONY: k8s-down
+k8s-down: ## Delete the kind cluster
+	scripts/k8s-dev.sh down
+
 .PHONY: smoke
 smoke: ## Hit every service's readiness endpoint
 	@for url in http://localhost:8000/readyz http://localhost:8001/readyz \

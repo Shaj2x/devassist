@@ -1,0 +1,55 @@
+# Event-driven autoscaling with KEDA (https://keda.sh): the workers scale on
+# Kafka consumer-group lag, which is what actually measures their backlog.
+# CPU is a poor signal here: an orchestrator replica spends most of a job
+# waiting on the model and the sandbox.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: orchestrator
+spec:
+  scaleTargetRef: { name: orchestrator }
+  minReplicaCount: 1
+  # Topics have 3 partitions; each replica runs ORCHESTRATOR_CONCURRENCY
+  # consumers, so more replicas than partitions would sit idle.
+  maxReplicaCount: 3
+  cooldownPeriod: 600
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-bootstrap.example.internal:9092
+        consumerGroup: devassist-orchestrator
+        topic: job.created
+        lagThreshold: "2"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: sandbox-runner
+spec:
+  scaleTargetRef: { name: sandbox-runner }
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  cooldownPeriod: 300
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-bootstrap.example.internal:9092
+        consumerGroup: devassist-sandbox-runner
+        topic: patch.generated
+        lagThreshold: "2"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: indexer
+spec:
+  scaleTargetRef: { name: indexer }
+  minReplicaCount: 2
+  maxReplicaCount: 3
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-bootstrap.example.internal:9092
+        consumerGroup: devassist-indexer
+        topic: repo.registered
+        lagThreshold: "5"

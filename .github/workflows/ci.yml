@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (lint, types, unit tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.17"
+          enable-cache: true
+      - run: uv sync --all-packages --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - name: mypy --strict
+        run: for p in libs/devassist-common services/api services/orchestrator; do uv run mypy $p/src $p/tests; done
+      - run: uv run pytest
+
+  go:
+    name: Go (${{ matrix.module }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [libs/gocommon, services/indexer, services/sandbox-runner]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5.0
+          working-directory: ${{ matrix.module }}
+          args: --config ${{ github.workspace }}/.golangci.yml
+      - run: go test -race ./...
+
+  dashboard:
+    name: Dashboard (lint, types, tests, build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  kubernetes:
+    name: Kubernetes manifests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
+            | sudo tar xz -C /usr/local/bin kubeconform
+      - run: make k8s-validate
+
+  integration:
+    name: Integration (full stack, mock LLM)
+    needs: [python, go, dashboard]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.17"
+          enable-cache: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache: false
+      - run: uv sync --all-packages --frozen
+      - name: Start the stack
+        run: make up
+      - name: Integration tests (migrations, indexer, sandbox escapes, agent pipeline, API e2e)
+        run: make test-integration
+      - name: Smoke test every service
+        run: make smoke
+      - name: Service logs
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml --env-file .env logs --no-color --tail 300
+
+  kubernetes-e2e:
+    name: Kubernetes end to end (kind, dev overlay)
+    needs: [kubernetes, python, go, dashboard]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.17"
+          enable-cache: true
+      - run: uv sync --all-packages --frozen
+      - name: Install kind
+        run: |
+          curl -fsSLo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.29.0/kind-linux-amd64
+          sudo install kind /usr/local/bin/kind
+      - name: Deploy the dev overlay to kind
+        run: make k8s-dev
+      - name: API end to end through the cluster
+        run: |
+          kubectl -n devassist port-forward svc/api 18000:8000 >/tmp/port-forward.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS localhost:18000/readyz >/dev/null && break; sleep 2; done
+          API_URL=http://localhost:18000 uv run pytest -m integration services/api/tests/test_e2e_integration.py -v
+      - name: Cluster state
+        if: failure()
+        run: |
+          kubectl -n devassist get pods,jobs -o wide
+          kubectl -n devassist describe pods | tail -200
+          for d in api orchestrator indexer sandbox-runner; do echo "== $d"; kubectl -n devassist logs deploy/$d --all-containers --tail 100 || true; done
+
+  images:
+    name: Publish images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [integration, kubernetes-e2e]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: api, dockerfile: services/api/Dockerfile, context: . }
+          - { name: orchestrator, dockerfile: services/orchestrator/Dockerfile, context: . }
+          - { name: indexer, dockerfile: services/indexer/Dockerfile, context: . }
+          - { name: sandbox-runner, dockerfile: services/sandbox-runner/Dockerfile, context: . }
+          - { name: dashboard, dockerfile: dashboard/Dockerfile, context: . }
+          - { name: sandbox-python, dockerfile: services/sandbox-runner/images/python/Dockerfile, context: services/sandbox-runner/images/python }
+          - { name: sandbox-go, dockerfile: services/sandbox-runner/images/go/Dockerfile, context: services/sandbox-runner/images/go }
+          - { name: sandbox-node, dockerfile: services/sandbox-runner/images/node/Dockerfile, context: services/sandbox-runner/images/node }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage extra CA certs (sandbox images copy deploy-certs/)
+        if: startsWith(matrix.name, 'sandbox-')
+        run: cp -R deploy/certs "${{ matrix.context }}/deploy-certs"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/devassist-${{ matrix.name }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/devassist-${{ matrix.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

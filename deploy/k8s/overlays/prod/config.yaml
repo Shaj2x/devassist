@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devassist-config
+data:
+  AUTH_MODE: token
+  LLM_PROVIDER: anthropic
+  # Managed Kafka (MSK, Confluent, ...). Replace with your bootstrap servers.
+  KAFKA_BOOTSTRAP_SERVERS: kafka-bootstrap.example.internal:9092
+  SANDBOX_IMAGE_PYTHON: ghcr.io/shaj2x/devassist-sandbox-python:latest
+  SANDBOX_IMAGE_GO: ghcr.io/shaj2x/devassist-sandbox-go:latest
+  SANDBOX_IMAGE_NODE: ghcr.io/shaj2x/devassist-sandbox-node:latest

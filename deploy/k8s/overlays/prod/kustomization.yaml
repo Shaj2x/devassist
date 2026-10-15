@@ -1,0 +1,25 @@
+# Production shape. Postgres (with pgvector), Redis and Kafka are managed
+# services; this overlay deploys only DevAssist.
+#
+# Before applying, create the `devassist-secrets` Secret in the namespace
+# (External Secrets, Sealed Secrets or your cloud's secret store) with:
+#   DATABASE_URL, REDIS_URL, TOKEN_ENCRYPTION_KEY       (required)
+#   ANTHROPIC_API_KEY or OPENAI_API_KEY                  (for the agents)
+#   GITHUB_TOKEN, VOYAGE_API_KEY                         (optional)
+# CI pins the image tags to the commit it built (`kustomize edit set image`).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: devassist
+resources:
+  - ../../base
+  - keda.yaml
+images:
+  - { name: devassist/api, newName: ghcr.io/shaj2x/devassist-api, newTag: latest }
+  - { name: devassist/orchestrator, newName: ghcr.io/shaj2x/devassist-orchestrator, newTag: latest }
+  - { name: devassist/indexer, newName: ghcr.io/shaj2x/devassist-indexer, newTag: latest }
+  - { name: devassist/sandbox-runner, newName: ghcr.io/shaj2x/devassist-sandbox-runner, newTag: latest }
+  - { name: devassist/dashboard, newName: ghcr.io/shaj2x/devassist-dashboard, newTag: latest }
+patches:
+  - path: config.yaml
+  - path: sandbox-pool.yaml
+  - path: ingress.yaml
