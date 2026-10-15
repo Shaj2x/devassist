@@ -1,10 +1,10 @@
 module github.com/Shaj2x/devassist/libs/gocommon
 
-go 1.24
+go 1.25.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/segmentio/kafka-go v0.4.48
@@ -25,9 +25,8 @@ require (
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/text v0.29.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 )
