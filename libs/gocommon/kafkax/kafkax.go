@@ -98,6 +98,11 @@ func NewReader(brokers []string, groupID, topic string) *kafka.Reader {
 		MaxWait:        time.Second,
 		CommitInterval: 0, // commit synchronously, only after handling
 		StartOffset:    kafka.FirstOffset,
+		// Rejoin the group when the topic's partitions change. Without this a
+		// reader that starts before its topic exists (every pod starting at
+		// once in Kubernetes) is assigned nothing and never consumes.
+		WatchPartitionChanges:  true,
+		PartitionWatchInterval: 5 * time.Second,
 	})
 }
 
