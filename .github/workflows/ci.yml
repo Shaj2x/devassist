@@ -17,7 +17,7 @@ jobs:
     name: Python (lint, types, unit tests)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.8.17"
@@ -40,7 +40,7 @@ jobs:
       run:
         working-directory: ${{ matrix.module }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -62,7 +62,7 @@ jobs:
       run:
         working-directory: dashboard
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -78,7 +78,7 @@ jobs:
     name: Kubernetes manifests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install kubeconform
         run: |
           curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.8.17"
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.8.17"
@@ -162,7 +162,7 @@ jobs:
           - { name: sandbox-go, dockerfile: services/sandbox-runner/images/go/Dockerfile, context: services/sandbox-runner/images/go }
           - { name: sandbox-node, dockerfile: services/sandbox-runner/images/node/Dockerfile, context: services/sandbox-runner/images/node }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Stage extra CA certs (sandbox images copy deploy-certs/)
         if: startsWith(matrix.name, 'sandbox-')
         run: cp -R deploy/certs "${{ matrix.context }}/deploy-certs"
