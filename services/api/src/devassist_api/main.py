@@ -26,7 +26,7 @@ from devassist_api.config import Settings
 from devassist_api.consumers import Notifier, run_consumers
 from devassist_api.github import GitHubClient
 from devassist_api.health import router as health_router
-from devassist_api.routers import auth, events, jobs, repos
+from devassist_api.routers import auth, events, info, jobs, repos
 
 VERSION = "0.1.0"
 log = logging.getLogger(__name__)
@@ -88,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health_router)
+    app.include_router(info.router)
     app.include_router(auth.router)
     app.include_router(repos.router)
     app.include_router(jobs.router)

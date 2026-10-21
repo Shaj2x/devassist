@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { ME, mockApi, renderAt, reply } from "../test/api";
+import { DEMO_INFO, ME, mockApi, renderAt, reply } from "../test/api";
 import { Layout } from "./Layout";
 
 describe("Layout", () => {
@@ -20,5 +20,21 @@ describe("Layout", () => {
     expect(screen.getByLabelText("GitHub token")).toHaveAttribute("type", "password");
     expect(screen.queryByRole("link", { name: "Jobs" })).not.toBeInTheDocument();
   });
-});
 
+  it("explains demo mode when no AI model is configured", async () => {
+    mockApi({ "GET /v1/auth/me": ME, "GET /v1/info": DEMO_INFO });
+    renderAt("/", "/", <Layout />);
+
+    const note = await screen.findByRole("note");
+    expect(note).toHaveTextContent("Demo mode.");
+    expect(note).toHaveTextContent("ANTHROPIC_API_KEY");
+  });
+
+  it("shows no banner when a real model is configured", async () => {
+    mockApi({ "GET /v1/auth/me": ME, "GET /v1/info": { llm_provider: "anthropic", demo_mode: false, demo: null } });
+    renderAt("/", "/", <Layout />);
+
+    expect(await screen.findByRole("link", { name: "Jobs" })).toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+});

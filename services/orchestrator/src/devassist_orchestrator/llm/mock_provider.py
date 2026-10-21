@@ -7,11 +7,17 @@ gives, in order:
 
 Each call pops that agent's next response. Token counts are estimated from
 text length so the dashboard's accounting has realistic shapes.
+
+A script may describe the one job it solves under "_demo" (regex patterns
+for the repository and the task). Jobs that do not match are refused up
+front: a scripted answer to a different task would be nonsense, and on a
+real repository approving it would open a pull request of sample code.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -34,9 +40,27 @@ class MockProvider:
     model = "mock"
 
     def __init__(self, script: dict[str, list[dict[str, Any]]]) -> None:
-        self.script = {agent: list(responses) for agent, responses in script.items()}
+        self.demo: dict[str, str] = dict(script.get("_demo", {}))  # type: ignore[arg-type]
+        self.script = {
+            agent: list(responses) for agent, responses in script.items() if agent != "_demo"
+        }
         self.calls: dict[str, int] = defaultdict(int)
         self.requests: list[LLMRequest] = []
+
+    def refusal(self, repo: str, clone_url: str, task: str) -> str | None:
+        """Why this script cannot run the job, or None if it can."""
+        if not self.demo:
+            return None
+        repo_ok = re.search(self.demo.get("repo_pattern", ""), f"{repo} {clone_url}", re.I)
+        task_ok = re.search(self.demo.get("task_pattern", ""), task, re.I)
+        if repo_ok and task_ok:
+            return None
+        return (
+            "Demo mode: no AI model is configured, so the scripted demo model only knows one "
+            f'task: "{self.demo.get("task", "?")}" on {self.demo.get("repo", "the sample repo")}. '
+            "To run your own tasks, set LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY "
+            "(or openai and OPENAI_API_KEY) in .env and restart."
+        )
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)

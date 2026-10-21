@@ -4,7 +4,7 @@
 
 DevAssist is a multi-agent AI platform that takes a plain-English change request for a GitHub repository, plans it, writes the code and tests, and validates every patch in a locked-down Docker sandbox. Validated patches land in a review dashboard where a human reads the diff, the agents' reasoning, and the test/security/lint results, and approves it straight into a pull request.
 
-![Job review page](docs/images/job-review.png)
+![DevAssist demo: add the sample repo, run the agents, review and approve](docs/images/demo.gif)
 
 ## Architecture
 
@@ -44,9 +44,8 @@ the Reviewer writes the summary a human approves. Details:
 
 ## Quickstart
 
-Requirements: Docker with Compose v2, and `make`. No API keys: the agents
-use a scripted mock model and the indexer a local embedder until you
-configure real ones.
+Requirements: Docker with Compose v2, and `make`. No API keys and no cost:
+out of the box DevAssist runs in **demo mode**.
 
 ```bash
 git clone https://github.com/Shaj2x/devassist.git && cd devassist
@@ -55,8 +54,17 @@ make up
 
 `make up` builds every image (the first build takes a few minutes), starts
 the stack and waits until every service is healthy. Then open
-**http://localhost:3000**, or run the whole flow from the terminal with
+**http://localhost:3000**, click **Add the sample repository**, then
+**New task → Start agents**. Or run the whole flow from the terminal with
 `make demo-api`.
+
+**Demo mode.** Without an API key, a scripted model plays the five agents.
+It knows one task, "Fix the failing test in datekit/calendar.py" on the
+bundled `demo/datekit` repository, and it deliberately gets the first patch
+wrong so you see the debug loop. Everything around it is real: indexing,
+the sandbox running the tests, security scan and linter, the dashboard,
+review and pull requests. Any other task fails straight away with a message
+explaining how to enable a real model, instead of producing nonsense.
 
 | URL                          | What                       |
 | ---------------------------- | -------------------------- |
@@ -145,9 +153,8 @@ cannot run forever: [docs/agents.md](docs/agents.md).
 
 ### 4. Review in the dashboard
 
-Open <http://localhost:3000>, register `demo/datekit` with clone URL
-`file:///sample-repos/datekit.git` (the form suggests it), click **New task**,
-pick the example task and **Start agents**. The job page follows the agents
+Open <http://localhost:3000>, click **Add the sample repository**, then
+**New task**, pick the suggested task and **Start agents**. The job page follows the agents
 live over server-sent events: which agent is working, every patch with its
 diff and sandbox results (tests, security scan, static analysis, full
 output), the plan, and the Reviewer's verdict. Click any step in the

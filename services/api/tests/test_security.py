@@ -74,3 +74,28 @@ def test_local_repos_default_follows_auth_mode() -> None:
     assert Settings(_env_file=None).local_repos_allowed
     token = Settings(_env_file=None, auth_mode="token", token_encryption_key=key)
     assert not token.local_repos_allowed
+
+
+async def test_info_reports_demo_mode_and_the_sample_task() -> None:
+    import httpx
+
+    async def get(settings: Settings) -> dict[str, Any]:
+        app = create_app(settings)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+            body: dict[str, Any] = (await client.get("/v1/info")).json()
+            return body
+
+    demo = await get(Settings(_env_file=None, llm_provider="mock"))
+    assert demo["demo_mode"] is True
+    assert demo["demo"]["repo"] == "demo/datekit"
+    assert "datekit/calendar.py" in demo["demo"]["task"]
+
+    real = await get(Settings(_env_file=None, llm_provider="anthropic"))
+    assert real == {"llm_provider": "anthropic", "demo_mode": False, "demo": None}
+
+    key = Fernet.generate_key().decode()
+    signed_in = await get(
+        Settings(_env_file=None, llm_provider="mock", auth_mode="token", token_encryption_key=key)
+    )
+    assert signed_in["demo_mode"] is True and signed_in["demo"] is None  # no local repos

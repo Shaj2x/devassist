@@ -39,6 +39,7 @@ Full schemas are at <http://localhost:8000/docs>.
 
 | Method | Path | What |
 | --- | --- | --- |
+| `GET` | `/v1/info` | Whether a real model is configured; in demo mode, the one sample task the scripted model knows |
 | `POST` | `/v1/auth/token` | Exchange a GitHub token for a session (token mode) |
 | `GET` | `/v1/auth/me` | Current user, auth mode, whether GitHub is connected |
 | `POST` | `/v1/auth/logout` | End the session |

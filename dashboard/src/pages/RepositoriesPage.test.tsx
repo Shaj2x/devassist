@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ME, REPO, mockApi, renderAt, reply } from "../test/api";
+import { DEMO_INFO, ME, REPO, mockApi, renderAt, reply } from "../test/api";
 import { RepositoriesPage } from "./RepositoriesPage";
 
 function renderPage() {
@@ -81,5 +81,35 @@ describe("RepositoriesPage", () => {
 
     expect(await screen.findByText("Indexing")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New task" })).toBeDisabled();
+  });
+});
+
+describe("RepositoriesPage in demo mode", () => {
+  it("adds the sample repository in one click", async () => {
+    const calls = mockApi({
+      "GET /v1/repos": [],
+      "GET /v1/auth/me": ME,
+      "GET /v1/info": DEMO_INFO,
+      "POST /v1/repos": reply(201, { ...REPO, latest_snapshot: null }),
+    });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add the sample repository" }));
+    await waitFor(() => {
+      expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+        full_name: "demo/datekit",
+        clone_url: "file:///sample-repos/datekit.git",
+      });
+    });
+  });
+
+  it("only suggests the task the demo model knows", async () => {
+    mockApi({ "GET /v1/repos": [REPO], "GET /v1/auth/me": ME, "GET /v1/info": DEMO_INFO });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "New task" }));
+    expect(await screen.findByText(/Demo mode: the scripted model only solves/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fix the failing test in datekit/calendar.py" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /parse_duration/ })).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,10 @@
 {
+  "_demo": {
+    "repo_pattern": "datekit",
+    "task_pattern": "fail|leap",
+    "task": "Fix the failing test in datekit/calendar.py",
+    "repo": "demo/datekit (file:///sample-repos/datekit.git)"
+  },
   "planner": [
     {
       "summary": "Make is_leap_year apply the full Gregorian rule (divisible by 4, except centuries unless divisible by 400), which fixes test_century_years.",

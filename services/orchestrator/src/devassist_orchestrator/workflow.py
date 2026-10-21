@@ -43,6 +43,7 @@ from devassist_orchestrator.agents import (
 )
 from devassist_orchestrator.agents.outputs import Plan
 from devassist_orchestrator.llm import LLMError, LLMProvider
+from devassist_orchestrator.llm.mock_provider import MockProvider
 from devassist_orchestrator.metrics import JOB_DURATION, JOB_ITERATIONS, JOBS
 from devassist_orchestrator.tools.retrieval import CodeHit, Retriever
 from devassist_orchestrator.tools.sandbox import ValidationRequest, Validator
@@ -167,6 +168,12 @@ class JobRunner:
 
     async def _run(self, spec: JobSpec) -> Outcome:
         with trace_context(spec.job_id):
+            if isinstance(self.llm, MockProvider) and (
+                reason := self.llm.refusal(spec.repo_name, spec.clone_url, spec.task)
+            ):
+                log.info("demo model cannot run this job", extra={"task": spec.task[:200]})
+                await self.store.set_status(JobStatus.FAILED, error=reason)
+                return Outcome("failed", 0, error=reason)
             try:
                 ws = await Workspace.checkout(
                     spec.clone_url,

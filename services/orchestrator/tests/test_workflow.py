@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
@@ -279,3 +280,28 @@ async def test_request_changes_rerun_continues_numbering_and_sees_feedback(
     assert "negative numbers" in store.steps[0]["request"].messages[0].content
     # The patch records final file contents for PR creation.
     assert store.patches[0]["files"]["app/math.py"] == FIXED
+
+
+DEMO = {"repo_pattern": "o/r", "task_pattern": "subtract", "task": "fix add()", "repo": "o/r"}
+
+
+async def test_demo_model_refuses_a_task_it_was_not_scripted_for(
+    repo_url: str, tmp_path: Path, store: Any, make_validation: Any
+) -> None:
+    llm = MockProvider({"_demo": DEMO, **script(FIXED, [])})  # type: ignore[dict-item]
+    other = dataclasses.replace(spec(repo_url), task="Add structured logging everywhere")
+
+    out = await runner(llm, store, ScriptedSandbox(make_validation), tmp_path).run(other)
+
+    assert out.status == "failed" and out.iterations == 0
+    assert out.error is not None and "Demo mode" in out.error and "ANTHROPIC_API_KEY" in out.error
+    assert store.statuses == ["failed"] and store.error == out.error
+    assert llm.requests == []  # refused before any agent ran
+
+
+async def test_demo_model_runs_the_task_it_was_scripted_for(
+    repo_url: str, tmp_path: Path, store: Any, make_validation: Any
+) -> None:
+    llm = MockProvider({"_demo": DEMO, **script(FIXED, [])})  # type: ignore[dict-item]
+    out = await runner(llm, store, ScriptedSandbox(make_validation), tmp_path).run(spec(repo_url))
+    assert out.status == "awaiting_review"

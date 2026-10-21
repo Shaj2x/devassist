@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCreateJob, useDeleteRepo, useMe, useRegisterRepo, useReindexRepo, useRepos } from "../api/queries";
+import { useCreateJob, useDeleteRepo, useInfo, useMe, useRegisterRepo, useReindexRepo, useRepos } from "../api/queries";
 import type { Repo } from "../api/types";
 import { Badge, Button, Card, Empty, ErrorNote, Loading, Spinner } from "../components/ui";
 import { shortSha, timeAgo } from "../lib/format";
@@ -24,7 +24,7 @@ export function RepositoriesPage() {
 
       {isPending && <Loading />}
       <ErrorNote error={error} />
-      {repos?.length === 0 && <Empty>No repositories yet. Register one above.</Empty>}
+      {repos?.length === 0 && <EmptyRepos />}
       {repos && repos.length > 0 && (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
           {repos.map((repo) => (
@@ -41,6 +41,34 @@ export function RepositoriesPage() {
       )}
       {active && <NewTaskForm key={active.id} repo={active} />}
     </section>
+  );
+}
+
+function EmptyRepos() {
+  const { data: info } = useInfo();
+  const register = useRegisterRepo();
+  const demo = info?.demo;
+  return (
+    <Empty>
+      <p>No repositories yet. Register one above.</p>
+      {demo && (
+        <div className="mt-4 space-y-2">
+          <Button
+            variant="primary"
+            busy={register.isPending}
+            onClick={() => {
+              register.mutate({ full_name: demo.repo, clone_url: demo.clone_url });
+            }}
+          >
+            Add the sample repository
+          </Button>
+          <p className="text-xs">
+            Adds <code className="font-mono">{demo.repo}</code>, a small Python library with a failing test, then indexes it.
+          </p>
+          <ErrorNote error={register.error} />
+        </div>
+      )}
+    </Empty>
   );
 }
 
@@ -190,11 +218,20 @@ const EXAMPLES = [
   "Add input validation to parse_duration and raise ValueError on bad units",
 ];
 
+/** In demo mode only the scripted task can succeed, so only it is suggested. */
+function examplesFor(demoTask: string | undefined, demoMode: boolean): string[] {
+  if (!demoMode) return EXAMPLES;
+  return demoTask ? [demoTask] : [];
+}
+
 function NewTaskForm({ repo }: { repo: Repo }) {
   const navigate = useNavigate();
   const create = useCreateJob();
   const [task, setTask] = useState("");
   const [iterations, setIterations] = useState(3);
+  const { data: info } = useInfo();
+  const demoMode = info?.demo_mode ?? false;
+  const examples = examplesFor(info?.demo?.task, demoMode);
 
   return (
     <Card title={`New task on ${repo.full_name}`}>
@@ -227,7 +264,7 @@ function NewTaskForm({ repo }: { repo: Repo }) {
           />
         </label>
         <div className="flex flex-wrap gap-2">
-          {EXAMPLES.map((example) => (
+          {examples.map((example) => (
             <button
               key={example}
               type="button"
@@ -240,6 +277,13 @@ function NewTaskForm({ repo }: { repo: Repo }) {
             </button>
           ))}
         </div>
+        {demoMode && (
+          <p className="text-xs text-amber-800">
+            Demo mode: the scripted model only solves{" "}
+            {info?.demo ? <>“{info.demo.task}” on {info.demo.repo}</> : "the sample task"}; other tasks fail with an
+            explanation.
+          </p>
+        )}
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-slate-700">
             Max iterations

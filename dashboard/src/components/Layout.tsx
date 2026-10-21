@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, Outlet } from "react-router-dom";
 import { ApiError, apiPost, session } from "../api/client";
-import { useMe, useNotifications } from "../api/queries";
+import { useInfo, useMe, useNotifications } from "../api/queries";
 import { SignInPage } from "../pages/SignInPage";
 import { cx } from "../lib/ui";
 import { Button, Loading } from "./ui";
@@ -47,9 +47,31 @@ export function Layout() {
           {me && <UserMenu login={me.user.login} avatar={me.user.avatar_url} tokenMode={me.auth_mode === "token"} />}
         </div>
       </header>
+      {me && <DemoBanner />}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {isPending ? <Loading /> : needsSignIn ? <SignInPage /> : <Outlet />}
       </main>
+    </div>
+  );
+}
+
+/** Shown when no real model is configured, so nobody mistakes the demo for the product limits. */
+function DemoBanner() {
+  const { data: info } = useInfo();
+  if (!info?.demo_mode) return null;
+  return (
+    <div role="note" className="border-b border-amber-200 bg-amber-50">
+      <p className="mx-auto max-w-6xl px-4 py-2 text-sm text-amber-900 sm:px-6">
+        <span className="font-semibold">Demo mode.</span> No AI model is configured, so a scripted model
+        plays the agents and only knows one task
+        {info.demo ? (
+          <>
+            : <span className="font-medium">“{info.demo.task}”</span> on <code className="font-mono">{info.demo.repo}</code>
+          </>
+        ) : null}
+        . Everything else (indexing, sandbox, review, pull requests) is real. Set{" "}
+        <code className="font-mono">ANTHROPIC_API_KEY</code> to run your own tasks.
+      </p>
     </div>
   );
 }

@@ -180,6 +180,14 @@ export interface JobDetail extends JobSummary {
   progress: Progress | null;
 }
 
+export interface Info {
+  llm_provider: string;
+  /** No real model configured: the orchestrator uses a scripted demo model. */
+  demo_mode: boolean;
+  /** The one task the demo model knows, when local repos can be added. */
+  demo: { repo: string; clone_url: string; task: string } | null;
+}
+
 /** Statuses after which nothing happens without a human. */
 export const SETTLED: ReadonlySet<JobStatus> = new Set([
   "awaiting_review",

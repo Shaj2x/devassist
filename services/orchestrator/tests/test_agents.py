@@ -54,4 +54,12 @@ async def test_budget_is_checked_before_calling(store: Any) -> None:
 
 def test_bundled_mock_script_loads() -> None:
     script = load_script("datekit_fix_leap_year")
-    assert set(script) == {"planner", "coder", "tester", "debugger", "reviewer"}
+    assert set(script) == {"_demo", "planner", "coder", "tester", "debugger", "reviewer"}
+    # The bundled demo accepts the sample task and refuses anything else.
+    llm = MockProvider(script)
+    url = "file:///sample-repos/datekit.git"
+    assert llm.refusal("demo/datekit", url, "Fix the failing test in datekit/calendar.py") is None
+    assert llm.refusal("demo/datekit", url, "Add a CLI") is not None
+    assert (
+        llm.refusal("octo/app", "https://github.com/octo/app.git", "Fix the leap bug") is not None
+    )

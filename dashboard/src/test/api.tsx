@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi } from "vitest";
-import type { JobDetail, Me, Repo } from "../api/types";
+import type { Info, JobDetail, Me, Repo } from "../api/types";
 
 type Handler = (body: unknown, url: URL) => { status?: number; body?: unknown };
 
@@ -62,6 +62,16 @@ export const ME: Me = {
   user: { id: "u1", login: "demo", avatar_url: null },
   auth_mode: "dev",
   github_connected: false,
+};
+
+export const DEMO_INFO: Info = {
+  llm_provider: "mock",
+  demo_mode: true,
+  demo: {
+    repo: "demo/datekit",
+    clone_url: "file:///sample-repos/datekit.git",
+    task: "Fix the failing test in datekit/calendar.py",
+  },
 };
 
 export const REPO: Repo = {

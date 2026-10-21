@@ -29,6 +29,10 @@ class Settings(ServiceSettings):
     # dev mode for the bundled sample repos; off by default in token mode.
     allow_local_repos: bool | None = None
 
+    # Which model the orchestrator uses (same LLM_PROVIDER variable). The
+    # API only reports it: "mock" means demo mode in the dashboard.
+    llm_provider: str = "mock"
+
     default_max_iterations: int = Field(default=3, ge=1, le=10)
     # Background Kafka consumers (repo.indexed, job.completed). Tests turn
     # this off.

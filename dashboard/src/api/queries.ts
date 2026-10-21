@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, streamUrl } from "./client";
-import type { JobDetail, JobSummary, Me, Progress, Repo, StepDetail } from "./types";
+import type { Info, JobDetail, JobSummary, Me, Progress, Repo, StepDetail } from "./types";
 import { SETTLED } from "./types";
 
 export const keys = {
   me: ["me"] as const,
+  info: ["info"] as const,
   repos: ["repos"] as const,
   repo: (id: string) => ["repos", id] as const,
   jobs: (repoId?: string) => (repoId ? (["jobs", { repoId }] as const) : (["jobs"] as const)),
@@ -15,6 +16,11 @@ export const keys = {
 
 export function useMe() {
   return useQuery({ queryKey: keys.me, queryFn: () => apiGet<Me>("/v1/auth/me"), retry: false });
+}
+
+/** Deployment capabilities; static for the life of the page. */
+export function useInfo() {
+  return useQuery({ queryKey: keys.info, queryFn: () => apiGet<Info>("/v1/info"), staleTime: Infinity });
 }
 
 // --- repositories -------------------------------------------------------------
